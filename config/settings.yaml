@@ -1,0 +1,67 @@
+# ============================================================
+# AI 驱动的竞品分析 Agent 协作系统 — 全局配置
+# ============================================================
+
+# --- LLM 配置 ---
+llm:
+  provider: "openai"              # openai | anthropic | deepseek
+  model: "gpt-4o"                 # 默认模型
+  api_key: "${LLM_API_KEY}"       # 从环境变量读取
+  api_base: ""                    # 自定义 API 地址（兼容 DeepSeek 等）
+  temperature: 0.3                # 分析类任务建议低温度
+  max_tokens: 4096
+
+# --- 网络搜索配置 ---
+search:
+  provider: "tavily"              # tavily | duckduckgo（免费 fallback）
+  api_key: "${TAVILY_API_KEY}"
+  max_results_per_query: 10
+  timeout_seconds: 30
+
+# --- Agent 配置 ---
+agents:
+  collector:
+    enabled: true
+    max_sources_per_target: 8
+    retry_on_failure: 2
+
+  analyst:
+    enabled: true
+    analysis_depth: "deep"        # quick | standard | deep
+    comparison_dimensions:
+      - "核心功能"
+      - "定价策略"
+      - "用户体验"
+      - "技术架构"
+      - "市场定位"
+
+  writer:
+    enabled: true
+    report_format: "markdown"     # markdown | html
+    include_charts: true
+
+  reviewer:
+    enabled: true
+    strict_mode: true             # 开启严格溯源校验
+    min_evidence_score: 0.7       # 最低证据置信度阈值
+    max_review_rounds: 3          # 质检-修正最大循环轮次
+
+# --- LangGraph 编排配置 ---
+orchestrator:
+  dag_timeout_seconds: 600        # 整条流水线超时时间
+  parallel_agents: 2              # 最大并行 Agent 数
+  feedback_loop_enabled: true     # 是否启用质检→分析反馈闭环
+  recursion_limit: 25             # LangGraph 递归上限
+
+# --- Streamlit 前端配置 ---
+streamlit:
+  page_title: "竞品分析 Agent 协作系统"
+  page_icon: "🔍"
+  layout: "wide"
+
+# --- 存储配置 ---
+storage:
+  traces_dir: "./traces"          # 执行轨迹存储目录
+  outputs_dir: "./outputs"        # 报告输出目录
+  artifacts_dir: "./artifacts"    # 中间产物存储目录
+  retention_days: 30              # 保留天数

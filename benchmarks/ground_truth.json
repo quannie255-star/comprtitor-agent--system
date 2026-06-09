@@ -1,0 +1,125 @@
+{
+  "description": "竞品分析 benchmark — 人工标注 Ground Truth，用于评估 Agent 输出准确率",
+  "version": "0.1.0",
+  "products": {
+    "Notion": {
+      "company": "Notion Labs Inc.",
+      "category": "协作知识库",
+      "pricing_model": "订阅制/免费增值",
+      "core_features": [
+        "文档协作",
+        "数据库/表格",
+        "知识库/Wiki",
+        "项目管理",
+        "AI 写作助手",
+        "模板市场"
+      ],
+      "strengths": [
+        "一体化 All-in-One 体验",
+        "模块化灵活搭建"
+      ],
+      "weaknesses": [
+        "离线支持弱",
+        "大数据量性能下降"
+      ],
+      "target_users": "个人用户、中小团队、企业"
+    },
+    "飞书": {
+      "company": "字节跳动",
+      "category": "企业协作平台",
+      "pricing_model": "免费增值/订阅制",
+      "core_features": [
+        "即时通讯",
+        "文档协作",
+        "视频会议",
+        "日历",
+        "审批流程",
+        "多维表格"
+      ],
+      "strengths": [
+        "深度集成字节生态",
+        "音视频会议体验优秀"
+      ],
+      "weaknesses": [
+        "国际化不足",
+        "海外用户体验弱于竞品"
+      ],
+      "target_users": "企业客户、中大型组织"
+    },
+    "Confluence": {
+      "company": "Atlassian",
+      "category": "企业知识库",
+      "pricing_model": "订阅制",
+      "core_features": [
+        "Wiki/知识库",
+        "空间管理",
+        "页面模板",
+        "权限控制",
+        "Jira 集成",
+        "版本历史"
+      ],
+      "strengths": [
+        "企业级权限管理",
+        "与 Jira 深度集成"
+      ],
+      "weaknesses": [
+        "界面复杂学习成本高",
+        "搜索体验欠佳"
+      ],
+      "target_users": "中大型企业、技术团队"
+    },
+    "Slack": {
+      "company": "Salesforce",
+      "category": "企业即时通讯",
+      "pricing_model": "免费增值/订阅制",
+      "core_features": [
+        "频道消息",
+        "文件分享",
+        "视频通话",
+        "应用集成",
+        "工作流自动化",
+        "搜索"
+      ],
+      "strengths": [
+        "丰富的第三方集成生态",
+        "优秀的搜索功能"
+      ],
+      "weaknesses": [
+        "免费版消息历史限制",
+        "大量消息时通知过载"
+      ],
+      "target_users": "各规模团队、技术公司"
+    },
+    "Figma": {
+      "company": "Figma Inc. (Adobe)",
+      "category": "在线协作设计工具",
+      "pricing_model": "免费增值/订阅制",
+      "core_features": [
+        "矢量设计",
+        "原型交互",
+        "实时协作",
+        "组件库",
+        "设计系统",
+        "开发者模式"
+      ],
+      "strengths": [
+        "浏览器原生无需安装",
+        "实时协作体验业界标杆"
+      ],
+      "weaknesses": [
+        "复杂交互原型能力弱于 Axure",
+        "企业版价格偏高"
+      ],
+      "target_users": "设计师、产品经理、前端开发者"
+    }
+  },
+  "evaluation_dimensions": [
+    "company_accuracy",
+    "category_accuracy",
+    "pricing_accuracy",
+    "feature_recall",
+    "feature_precision",
+    "strength_recall",
+    "weakness_recall"
+  ]
+}
