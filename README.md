@@ -1,28 +1,71 @@
 # 🔍 AI 驱动的竞品分析 Agent 协作系统
 
-[![CI](https://github.com/niequan/ai-competitive-analysis/actions/workflows/ci.yml/badge.svg)](https://github.com/niequan/ai-competitive-analysis/actions)
-[![Coverage](https://codecov.io/gh/niequan/ai-competitive-analysis/branch/master/graph/badge.svg)](https://codecov.io/gh/niequan/ai-competitive-analysis)
+[![CI](https://github.com/quannie255-star/comprtitor-agent--system/actions/workflows/ci.yml/badge.svg)](https://github.com/quannie255-star/comprtitor-agent--system/actions)
+[![Coverage](https://codecov.io/gh/quannie255-star/comprtitor-agent--system/branch/master/graph/badge.svg)](https://codecov.io/gh/quannie255-star/comprtitor-agent--system)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
-[![Tests](https://img.shields.io/badge/tests-130%20passed-green.svg)](https://github.com/niequan/ai-competitive-analysis)
+[![Tests](https://img.shields.io/badge/tests-130%20passed-green.svg)](https://github.com/quannie255-star/comprtitor-agent--system)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-0.1.0-blue.svg)](https://github.com/niequan/ai-competitive-analysis/releases)
+[![Version](https://img.shields.io/badge/version-0.1.0-blue.svg)](https://github.com/quannie255-star/comprtitor-agent--system/releases)
 
 基于 LangGraph 的多 Agent 协作系统，自动完成从公开信息采集到结构化竞品报告输出的全链路工作。
 
 ## 架构概览
 
+```mermaid
+graph TB
+    subgraph 用户层["👤 用户层"]
+        UI["🖥️ Streamlit Web UI<br/>输入竞品名称 + 分析维度"]
+        CLI["💻 CLI (cli.py)<br/>命令行一键分析"]
+    end
+
+    subgraph 编排层["🎯 编排层 (Orchestration)"]
+        ORCH["Orchestrator<br/>LangGraph DAG 引擎<br/>━━━━━━━━━━━━<br/>• 状态管理与路由<br/>• 条件分支与回退<br/>• 最大质检轮次控制<br/>• trace_id 全链路追踪"]
+    end
+
+    subgraph Agent层["🤖 Agent 协作层 (4-Agent Pipeline)"]
+        direction LR
+        C["🔍 Collector<br/>━━━━━━━━━<br/>• Tavily 搜索<br/>• 网页抓取<br/>• LLM 结构化解析<br/>━━━━━━━━━<br/>📦 输出: CompetitorProfile"]
+        A["📊 Analyst<br/>━━━━━━━━━<br/>• 功能维度对比<br/>• SWOT 分析<br/>• 市场洞察<br/>━━━━━━━━━<br/>📦 输出: FeatureMatrix + MarketInsight"]
+        W["📝 Writer<br/>━━━━━━━━━<br/>• 章节拼装<br/>• LLM 摘要<br/>• Markdown 渲染<br/>━━━━━━━━━<br/>📦 输出: StructuredReport"]
+        R["✅ Reviewer<br/>━━━━━━━━━<br/>• 编程化规则检查<br/>• LLM 语义审查<br/>• 溯源交叉验证<br/>━━━━━━━━━<br/>📦 输出: ReviewResult"]
+
+        C -->|"CompetitorProfile"| A
+        A -->|"FeatureMatrix"| W
+        W -->|"StructuredReport"| R
+    end
+
+    subgraph 基础设施层["⚙️ 基础设施层"]
+        direction LR
+        MB["📨 MessageBus<br/>发布/订阅消息总线"]
+        TS["💾 TraceStore<br/>执行轨迹持久化"]
+        AS["📦 ArtifactStore<br/>中间产物存储"]
+        OBS["📊 Observability<br/>成本追踪 + 审计 + Guardrails"]
+    end
+
+    subgraph 输出层["📄 输出层"]
+        OUT["📋 竞品分析报告<br/>━━━━━━━━━<br/>7 章节 Markdown<br/>• 执行摘要 • 竞品画像<br/>• 功能对比矩阵 • SWOT<br/>• 市场洞察 • 战略建议<br/>• 参考来源（可溯源）"]
+    end
+
+    UI --> ORCH
+    CLI --> ORCH
+    ORCH --> C
+    R -->|"✅ PASSED"| OUT
+    R -.->|"❌ INSUFFICIENT_SOURCE<br/>回退重跑"| C
+    R -.->|"❌ SCHEMA_MISMATCH<br/>回退重跑"| A
+    R -.->|"❌ QUALITY_ISSUE<br/>回退重跑"| W
+    MB -.->|事件通知| Agent层
+    TS -.->|轨迹记录| 编排层
+    AS -.->|产物持久化| 编排层
+    OBS -.->|可观测性| 编排层
+
+    style 用户层 fill:#e1f5fe,stroke:#0288d1
+    style 编排层 fill:#fff3e0,stroke:#f57c00
+    style Agent层 fill:#e8f5e9,stroke:#388e3c
+    style 基础设施层 fill:#f3e5f5,stroke:#7b1fa2
+    style 输出层 fill:#fce4ec,stroke:#c62828
 ```
-用户输入 (竞品名称) → Orchestrator (DAG 编排)
-                          │
-    ┌─────────────────────┼─────────────────────┐
-    ▼                     ▼                     ▼
-Collector ──────→ Analyst ──────→ Writer ──────→ Reviewer
-(搜索+抓取)      (功能对比+SWOT)  (报告生成)      (交叉审查)
-    │                ▲                ▲              │
-    └── 信源不足 ←──┘                └── 质量问题 ───┘
-                        │                (反馈闭环)
-                        └── Schema缺失 ──┘
-```
+
+> **核心流程**: 用户输入 → Orchestrator 调度 → Collector → Analyst → Writer → Reviewer → 质检通过则输出报告，质检驳回则自动回退到对应 Agent 重跑（最多 3 轮）
 
 **4 个专职 Agent**：
 | Agent | 职责 | 输出 |
