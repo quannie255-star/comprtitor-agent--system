@@ -12,7 +12,6 @@
 """
 
 from datetime import datetime
-from typing import Any, Optional
 
 from loguru import logger
 
@@ -20,12 +19,17 @@ from agents.base import BaseAgent
 from core.message_bus import MessageType
 from core.schema import (
     CompetitorProfile,
+    DORAMetrics,
     FeatureMatrix,
     MarketInsight,
+    Priority,
+    PullRequest,
+    ReviewIssue,
+    ReviewReport,
+    ReviewScore,
     StructuredReport,
 )
 from models.report import ReportRenderer
-
 
 # ============================================================
 # LLM Prompt 模板
@@ -81,8 +85,8 @@ class WriterAgent(BaseAgent):
         self,
         message_bus=None,
         llm=None,
-        config: Optional[dict] = None,
-        renderer: Optional[ReportRenderer] = None,
+        config: dict | None = None,
+        renderer: ReportRenderer | None = None,
     ):
         super().__init__(
             name="writer",
@@ -102,6 +106,14 @@ class WriterAgent(BaseAgent):
             更新后的 state 片段
         """
         raw_targets = state.get("target_products") or [state.get("target_product", "Unknown")]
+
+        # --- 输入类型检测：代码审查模式 ---
+        review_issues = state.get("review_issues")
+        review_score = state.get("review_score")
+        pr_data = state.get("pr_data")
+        if review_issues is not None and pr_data:
+            return self._execute_review_report(pr_data, review_issues, review_score, state)
+
         if isinstance(raw_targets, str):
             raw_targets = [raw_targets]
         targets = [t for t in raw_targets if isinstance(t, str) and len(t) >= 2]
@@ -121,45 +133,44 @@ class WriterAgent(BaseAgent):
         # --- Step 2: 构建分析数据文本 ---
         analysis_data = self._build_analysis_text(profiles, feature_matrix, market_insights)
 
-        # --- Step 3: 生成执行摘要 ---
-        s_start = datetime.now()
-        self._log_step(action="summary_generation", input_summary="LLM 生成执行摘要")
+        # --- Step 3-4: 生成摘要 + 建议（合并为 1 次 LLM 调用）---
+        w_start = datetime.now()
+        self._log_step(action="content_generation", input_summary="LLM 生成摘要 + 建议")
 
         if self.llm is None:
             names = ", ".join(p.name for p in profiles)
-            category = profiles[0].category if profiles and profiles[0].category else "该品类"
             summary = (
-                f"本报告对 **{names}** 进行了系统性的竞品分析，覆盖功能对比、SWOT 分析和市场定位三个维度。"
-                f"由于 AI 模型未配置，当前报告内容为基于模拟数据的结构演示，"
-                f"实际使用时请配置 LLM API Key 以获取完整的智能分析结果。"
+                f"本报告对 **{names}** 进行了系统性的竞品分析，覆盖功能对比、SWOT 分析和市场定位。"
+                f"由于 AI 模型未配置，当前内容为结构演示，实际使用时请配置 LLM API Key。"
             )
-        else:
-            summary = self._generate_summary(analysis_data)
-
-        self._log_step(
-            action="summary_generation",
-            output_summary=summary[:100] + "...",
-            started_at=s_start,
-            duration_ms=(datetime.now() - s_start).total_seconds() * 1000,
-        )
-
-        # --- Step 4: 生成战略建议 ---
-        r_start = datetime.now()
-        self._log_step(action="recommendations_generation", input_summary="LLM 生成战略建议")
-
-        if self.llm is None:
             recommendations = [
-                f"配置 LLM API Key 以获取针对 {target} 的定制化战略建议",
-                "在 config/settings.yaml 中调整分析维度以匹配你的行业需求",
+                "配置 LLM API Key 以获取定制化建议",
+                "在 config/settings.yaml 中调整分析维度",
             ]
         else:
-            recommendations = self._generate_recommendations(analysis_data)
+            # 合并 prompt：摘要 + 建议一起返回，用 ===RECS=== 分隔
+            combined = (
+                SUMMARY_PROMPT.format(analysis_data=analysis_data[:4000])
+                + "\n\n---\n\n"
+                + RECOMMENDATIONS_PROMPT.format(analysis_data=analysis_data[:4000])
+                + "\n\n请用 ===RECS=== 分隔符分开输出摘要和建议。先输出摘要，然后 ===RECS===，然后 JSON 列表。"
+            )
+            response = self._invoke_llm(combined)
+
+            # 分离摘要和建议
+            if "===RECS===" in response:
+                summary, recs_text = response.split("===RECS===", 1)
+                summary = summary.strip()
+                recommendations = self._parse_json_list(recs_text)
+            else:
+                summary = response[:500]
+                recommendations = ["基于现有数据制定差异化策略"]
 
         self._log_step(
-            action="recommendations_generation",
-            output_summary=f"生成 {len(recommendations)} 条建议",
-            started_at=r_start,
-            duration_ms=(datetime.now() - r_start).total_seconds() * 1000,
+            action="content_generation",
+            output_summary=f"摘要 {len(summary)} 字, {len(recommendations)} 条建议",
+            started_at=w_start,
+            duration_ms=(datetime.now() - w_start).total_seconds() * 1000,
         )
 
         # --- Step 5: 组装 StructuredReport ---
@@ -205,8 +216,30 @@ class WriterAgent(BaseAgent):
     # 内部方法
     # ============================================================
 
+    @staticmethod
+    def _parse_json_list(text: str) -> list[str]:
+        """从 LLM 输出中提取 JSON 列表（建议）"""
+        import json, re
+        text = text.strip()
+        # 移除代码块
+        if text.startswith("```"):
+            lines = text.split("\n")
+            text = "\n".join(lines[1:])
+            if text.endswith("```"):
+                text = text[:-3]
+        try:
+            return json.loads(text.strip())
+        except (json.JSONDecodeError, ValueError):
+            match = re.search(r'\[.*?\]', text, re.DOTALL)
+            if match:
+                try:
+                    return json.loads(match.group(0))
+                except (json.JSONDecodeError, ValueError):
+                    pass
+            return [text.strip()[:200]] if text.strip() else ["基于现有数据制定差异化策略"]
+
     def _generate_summary(self, analysis_data: str) -> str:
-        """LLM 生成执行摘要"""
+        """LLM 生成执行摘要（已合并，保留兼容）"""
         prompt = SUMMARY_PROMPT.format(analysis_data=analysis_data[:5000])
         return self._invoke_llm(prompt)
 
@@ -240,7 +273,7 @@ class WriterAgent(BaseAgent):
     @staticmethod
     def _build_analysis_text(
         profiles: list[CompetitorProfile],
-        feature_matrix: Optional[FeatureMatrix],
+        feature_matrix: FeatureMatrix | None,
         market_insights: list[MarketInsight],
     ) -> str:
         """构建 LLM 用的分析数据摘要"""
@@ -275,7 +308,7 @@ class WriterAgent(BaseAgent):
         return result
 
     @staticmethod
-    def _deserialize_feature_matrix(raw) -> Optional[FeatureMatrix]:
+    def _deserialize_feature_matrix(raw) -> FeatureMatrix | None:
         if raw is None:
             return None
         if isinstance(raw, FeatureMatrix):
@@ -293,3 +326,123 @@ class WriterAgent(BaseAgent):
             elif isinstance(item, dict):
                 result.append(MarketInsight(**item))
         return result
+
+    # ============================================================
+    # Product Line 2: 代码审查报告
+    # ============================================================
+
+    def write_review_report(self, report: ReviewReport) -> str:
+        """生成完整的 8 章节 Markdown 审查报告
+
+        Args:
+            report: 完整的 ReviewReport 对象（含 PR、issues、score）
+
+        Returns:
+            完整的 Markdown 报告字符串
+        """
+        logger.info(f"[Writer:Code] 生成代码审查报告: {report.pr.title}")
+        return report.render_markdown()
+
+    def _format_issues_for_report(self, issues: list[ReviewIssue]) -> str:
+        """按优先级和分类格式化问题列表"""
+        if not issues:
+            return "_No issues found. Great job!_"
+
+        lines = []
+        # 按优先级分组
+        for pri in Priority:
+            pri_issues = [i for i in issues if i.priority == pri]
+            if not pri_issues:
+                continue
+            icon = {"P0": "🔴", "P1": "🟠", "P2": "🟡", "P3": "🟢"}.get(pri.value, "⚪")
+            lines.append(f"### {icon} {pri.value} — {len(pri_issues)} issues")
+            lines.append("")
+            for issue in pri_issues:
+                lines.append(f"**{issue.title}**  `[{issue.category.value}]`")
+                if issue.file_path:
+                    loc = f"`{issue.file_path}`"
+                    if issue.line_number:
+                        loc += f":{issue.line_number}"
+                    lines.append(f"- Location: {loc}")
+                lines.append(f"- Source: `{issue.agent_source.value}` (confidence: {issue.confidence:.0%})")
+                if issue.description:
+                    lines.append(f"- {issue.description}")
+                if issue.suggested_fix:
+                    lines.append(f"- Fix: {issue.suggested_fix}")
+                lines.append("")
+        return "\n".join(lines)
+
+    def _execute_review_report(
+        self, pr_data: dict, issues_data: list, score_data: dict, state: dict,
+    ) -> dict:
+        """执行代码审查报告生成（Product Line 2 入口）
+
+        输入: state["pr_data"] + state["review_issues"] + state["review_score"]
+        输出: state["report"]
+        """
+        logger.info("[Writer:Code] 开始生成代码审查报告")
+
+        pr = PullRequest(**pr_data) if isinstance(pr_data, dict) else pr_data
+        issues = [
+            ReviewIssue(**i) if isinstance(i, dict) else i
+            for i in (issues_data or [])
+        ]
+        score = ReviewScore(**score_data) if isinstance(score_data, dict) else (score_data or ReviewScore())
+
+        # 质量门禁判定
+        gate_passed, gate_failures = score.passes_quality_gate()
+        critical = sum(1 for i in issues if i.priority == Priority.P0_CRITICAL)
+        high = sum(1 for i in issues if i.priority == Priority.P1_HIGH)
+
+        if not gate_passed and critical == 0:
+            # 无 critical issue 但分数不够 → 仍可标记为需要改进
+            pass
+
+        # 构建 ReviewReport
+        selected = state.get("selected_agents") or []
+        from core.schema import AgentType
+        agents = []
+        for a in selected:
+            try:
+                agents.append(AgentType(a) if isinstance(a, str) else a)
+            except ValueError:
+                pass
+
+        report = ReviewReport(
+            pr=pr,
+            issues=issues,
+            score=score,
+            selected_agents=agents or [AgentType.CLAUDE, AgentType.CODEX],
+            quality_gate_passed=gate_passed,
+            quality_gate_failures=gate_failures,
+            trace_id=state.get("trace_id", ""),
+        )
+
+        markdown = self.write_review_report(report)
+
+        # 保存到 outputs/
+        output_dir = self.config.get("storage", {}).get("outputs_dir", "./outputs") if self.config else "./outputs"
+        import os
+        os.makedirs(output_dir, exist_ok=True)
+        safe_title = pr.title[:50].replace(" ", "_").replace("/", "_")
+        filepath = f"{output_dir}/review_{safe_title}_{report.id}.md"
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(markdown)
+
+        self._log_step(
+            action="review_report_generated",
+            output_summary=f"报告 {len(markdown)} 字符, gate={'PASSED' if gate_passed else 'FAILED'}",
+        )
+
+        self.send_message(
+            receiver="reviewer",
+            msg_type=MessageType.DATA_OUTPUT,
+            payload={
+                "mode": "code_review",
+                "pr_title": pr.title,
+                "report_file": filepath,
+                "quality_gate_passed": gate_passed,
+            },
+        )
+
+        return {"report": markdown}
