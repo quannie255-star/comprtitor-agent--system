@@ -11,23 +11,24 @@ DAG 编排引擎 (Orchestrator)
 也提供简单顺序执行器作为 LangGraph 不可用时的 fallback。
 """
 
-from datetime import datetime
-from typing import Any, Callable, Optional
+from typing import Any
 from uuid import uuid4
 
 from loguru import logger
 
-from core.message_bus import MessageBus, MessageType
-from core.schema import AgentState, RejectReason
-from storage.artifact_store import ArtifactStore
-from storage.trace_store import TraceStore
+from agents.analyst import AnalystAgent
 
 # Agent imports
 from agents.collector import CollectorAgent
-from agents.analyst import AnalystAgent
-from agents.writer import WriterAgent
 from agents.reviewer import ReviewerAgent
-
+from observability.audit import AuditLogger
+from observability.guardrails import Guardrails
+from observability.tracer import LLMTracer
+from agents.writer import WriterAgent
+from core.message_bus import MessageBus
+from core.schema import AgentState, AgentType, PullRequest
+from storage.artifact_store import ArtifactStore
+from storage.trace_store import TraceStore
 
 # ============================================================
 # Orchestrator
@@ -58,6 +59,12 @@ class Orchestrator:
         self.trace_store = TraceStore(base_dir=storage_cfg.get("traces_dir", "./traces"))
         self.artifact_store = ArtifactStore(base_dir=storage_cfg.get("artifacts_dir", "./artifacts"))
 
+        # 可观测性
+        self.tracer = LLMTracer(trace_id=self.trace_id)
+        self.audit = AuditLogger(trace_id=self.trace_id)
+        self.guardrails = Guardrails(strict_mode=config.get("agents", {}).get("reviewer", {}).get("strict_mode", True))
+        self.cost_tracker = None  # 在 _save_traces 时填充
+
         # LLM（从配置创建或为 None）
         self.llm = self._create_llm(config.get("llm", {}))
 
@@ -83,6 +90,12 @@ class Orchestrator:
             config=config,
         )
 
+        # 注入可观测性组件
+        for agent in [self.collector, self.analyst, self.writer, self.reviewer]:
+            agent._tracer = self.tracer
+            agent._audit = self.audit
+            agent._guardrails = self.guardrails
+
     # ============================================================
     # 主入口
     # ============================================================
@@ -90,9 +103,9 @@ class Orchestrator:
     def run(
         self,
         target_product: str,
-        analysis_dimensions: Optional[list[str]] = None,
+        analysis_dimensions: list[str] | None = None,
         use_langgraph: bool = True,
-        target_products: Optional[list[str]] = None,
+        target_products: list[str] | None = None,
     ) -> dict:
         """执行完整竞品分析流水线
 
@@ -117,6 +130,169 @@ class Orchestrator:
                 return self._run_sequential(products, dimensions)
         else:
             return self._run_sequential(products, dimensions)
+
+    # ============================================================
+    # Product Line 2: 代码审查入口
+    # ============================================================
+
+    def review_pr(
+        self,
+        pr_data: dict,
+        selected_agents: list[str] | None = None,
+        use_langgraph: bool = False,
+    ) -> dict:
+        """执行完整代码审查流水线
+
+        Args:
+            pr_data: PR 数据 dict（title, description, changed_files 等）
+            selected_agents: 手动指定的 Agent 列表，如 ["claude", "codex"]
+                             为 None 时自动路由
+            use_langgraph: 是否使用 LangGraph DAG（默认顺序执行）
+
+        Returns:
+            最终 state dict（含 report, review_result, dora_metrics 等）
+        """
+        # 解析 Agent 选择（支持 @mention 语义：@claude / @codex / @all）
+        agents = self.route_pr(pr_data, selected_agents)
+        logger.info(
+            f"[Orchestrator:Code] 启动代码审查: {pr_data.get('title', 'Untitled')}, "
+            f"agents={[a.value for a in agents]}"
+        )
+        return self._run_code_review(pr_data, agents)
+
+    def route_pr(
+        self,
+        pr_data: dict,
+        selected_agents: list[str] | None = None,
+    ) -> list[AgentType]:
+        """根据 PR 特征自动选择审查 Agent 组合
+
+        路由规则：
+          - @mention 覆盖：selected_agents=["claude"] → 只用 Claude
+          - 变更 < 50 行 → 轻量审查（Codex 单 Agent）
+          - 50-200 行 → 标准审查（Claude + Codex）
+          - > 200 行 → 深度审查（Claude + Codex）
+          - 配置文件变更 → 侧重格式和一致性（Codex）
+          - 源码变更 → 侧重架构和实现（Claude）
+          - 测试文件 → 侧重覆盖率（Codex）
+
+        Returns:
+            选定的 AgentType 列表
+        """
+        # @mention 覆盖：显式指定的 Agent 优先
+        if selected_agents:
+            result = []
+            for name in selected_agents:
+                name_lower = name.lower().strip()
+                if name_lower in ("all", "*"):
+                    return [AgentType.CLAUDE, AgentType.CODEX]
+                try:
+                    result.append(AgentType(name_lower))
+                except ValueError:
+                    logger.warning(f"[Orchestrator] 未知 Agent: {name}，使用默认路由")
+            if result:
+                logger.info(f"[Orchestrator] @mention override: {[a.value for a in result]}")
+                return result
+
+        # 自动路由：基于 PR 特征
+        pr = PullRequest(**pr_data) if isinstance(pr_data, dict) else pr_data
+        total = pr.total_changes
+        changed_files = pr.changed_files
+
+        # 判断文件类型倾向
+        source_files = [
+            f for f in changed_files
+            if f.language in ("python", "javascript", "typescript", "go", "rust", "java", "cpp", "c")
+        ]
+        config_files = [
+            f for f in changed_files
+            if f.language in ("yaml", "json", "toml", "markdown", "docker", "shell")
+        ]
+        test_files = [f for f in changed_files if "test" in f.path.lower() or "spec" in f.path.lower()]
+
+        # 规模路由
+        if total < 50:
+            agents = [AgentType.CODEX]  # 小 PR：轻量审查
+        elif total < 200:
+            agents = [AgentType.CLAUDE, AgentType.CODEX]  # 标准审查
+        else:
+            agents = [AgentType.CLAUDE, AgentType.CODEX]  # 大 PR：双轨深度
+
+        # 文件类型微调：纯配置文件 → Codex 为主
+        if config_files and not source_files:
+            agents = [AgentType.CODEX]
+
+        # 源码 > 50% → 确保 Claude 参与架构审查
+        if len(source_files) > len(changed_files) * 0.5 and AgentType.CLAUDE not in agents:
+            agents.append(AgentType.CLAUDE)
+
+        logger.info(
+            f"[Orchestrator] 自动路由: size={pr.change_size} ({total} lines), "
+            f"source={len(source_files)}, config={len(config_files)}, test={len(test_files)} "
+            f"→ {[a.value for a in agents]}"
+        )
+        return agents
+
+    def _run_code_review(
+        self, pr_data: dict, agents: list[AgentType],
+    ) -> dict:
+        """顺序执行代码审查流水线（Collector → Analyst → Writer → Reviewer）"""
+        import re
+
+        # 提取 @mention 指令
+        description = pr_data.get("description", "")
+        mentions = re.findall(r"@(\w+)", description)
+        if mentions:
+            try:
+                agents = [AgentType(m.lower()) for m in mentions if m.lower() in ("claude", "codex")]
+                logger.info(f"[Orchestrator] @mention in description: {[a.value for a in agents]}")
+            except ValueError:
+                pass
+
+        state = {
+            "pr_data": pr_data,
+            "target_product": pr_data.get("title", "Code Review"),
+            "source_pool": [],
+            "competitor_profiles": [],
+            "feature_matrix": None,
+            "market_insights": [],
+            "report": "",
+            "review_result": None,
+            "review_issues": None,
+            "review_score": None,
+            "dora_metrics": None,
+            "agenthub_metrics": None,
+            "iteration_count": 0,
+            "messages": [],
+            "trace_id": self.trace_id,
+            "selected_agents": [a.value for a in agents],
+        }
+
+        # Step 1: Collector — 代码采集
+        logger.info("[Orchestrator:Code] → Collector")
+        result = self.collector.execute(state)
+        state.update(result)
+
+        # Step 2: Analyst — 双轨审查
+        logger.info("[Orchestrator:Code] → Analyst")
+        state["selected_agents"] = [a.value for a in agents]
+        result = self.analyst.execute(state, selected_agents=[a.value for a in agents])
+        state.update(result)
+
+        # Step 3: Writer — 生成报告
+        logger.info("[Orchestrator:Code] → Writer")
+        result = self.writer.execute(state)
+        state.update(result)
+
+        # Step 4: Reviewer — 质量门禁
+        logger.info("[Orchestrator:Code] → Reviewer")
+        result = self.reviewer.execute(state)
+        state.update(result)
+
+        # 保存轨迹
+        self._save_traces()
+
+        return state
 
     # ============================================================
     # LangGraph 模式
@@ -192,7 +368,7 @@ class Orchestrator:
         self, products: list[str], dimensions: list[str]
     ) -> dict:
         """简单顺序执行 + 反馈闭环（无 LangGraph 依赖）"""
-        max_rounds = self.config.get("agents", {}).get("reviewer", {}).get("max_review_rounds", 3)
+        max_rounds = self.config.get("agents", {}).get("reviewer", {}).get("max_review_rounds", 1)
 
         state = {
             "target_product": products[0],
@@ -267,7 +443,7 @@ class Orchestrator:
             # 判定
             review = state.get("review_result", {})
             if isinstance(review, dict) and review.get("passed"):
-                logger.info(f"[Orchestrator] ✅ 质检通过！流水线完成")
+                logger.info("[Orchestrator] ✅ 质检通过！流水线完成")
                 break
 
             reason = review.get("reject_reason", "passed") if isinstance(review, dict) else "passed"
@@ -364,7 +540,7 @@ class Orchestrator:
     # ============================================================
 
     @staticmethod
-    def _create_llm(llm_config: dict) -> Optional[Any]:
+    def _create_llm(llm_config: dict) -> Any | None:
         """从配置创建 LangChain ChatModel"""
         api_key = llm_config.get("api_key", "")
         if not api_key or api_key.startswith("${"):
@@ -436,10 +612,23 @@ class Orchestrator:
                 "total_iterations": sum(len(log) for log in agent_logs.values()),
             },
         )
-        logger.info(f"[Orchestrator] 轨迹已保存: traces/{self.trace_id}/")
+        # 保存 LLM 调用链 + 审计日志
+        self.audit.save()
+
+        # 计算成本
+        from observability.cost import CostTracker
+        self.cost_tracker = CostTracker()
+        for span in self.tracer.spans:
+            self.cost_tracker.record(span)
+        cost_summary = self.cost_tracker.summary()
+
+        logger.info(f"[Orchestrator] 轨迹已保存: traces/{self.trace_id}/, "
+                     f"成本: ${cost_summary.get('total_cost', 0):.4f}")
 
     def get_summary(self) -> dict:
-        """获取执行摘要"""
+        """获取执行摘要（含 LLM 可观测性）"""
+        tracer_summary = self.tracer.summary() if getattr(self, 'tracer', None) else {}
+        cost_summary = self.cost_tracker.summary() if getattr(self, 'cost_tracker', None) and self.cost_tracker else {}
         return {
             "trace_id": self.trace_id,
             "collector_steps": len(self.collector.get_execution_log()),
@@ -447,4 +636,9 @@ class Orchestrator:
             "writer_steps": len(self.writer.get_execution_log()),
             "reviewer_steps": len(self.reviewer.get_execution_log()),
             "messages": len(self.bus.get_message_log()),
+            "llm_calls": tracer_summary.get("total_calls", 0),
+            "llm_tokens": tracer_summary.get("total_tokens", 0),
+            "llm_avg_latency_ms": tracer_summary.get("avg_latency_ms", 0),
+            "llm_cost": cost_summary.get("total_cost", 0),
+            "llm_savings_vs_gpt4o": cost_summary.get("vs_gpt4o_savings_pct", "N/A"),
         }
