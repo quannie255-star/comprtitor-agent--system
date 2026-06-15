@@ -1,17 +1,21 @@
-# 🔍 AI 驱动的竞品分析 & 代码审查 Agent 协作系统
+# 🔍 AI 驱动的自动化分析引擎
 
 [![CI](https://github.com/quannie255-star/comprtitor-agent--system/actions/workflows/ci.yml/badge.svg)](https://github.com/quannie255-star/comprtitor-agent--system/actions)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![Tests](https://img.shields.io/badge/tests-173%20passed-green.svg)](https://github.com/quannie255-star/comprtitor-agent--system)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-0.2.0-blue.svg)](https://github.com/quannie255-star/comprtitor-agent--system/releases)
+[![Version](https://img.shields.io/badge/version-0.3.0-blue.svg)](https://github.com/quannie255-star/comprtitor-agent--system/releases)
 
-基于 LangGraph 的多 Agent 协作系统，两条产品线共用 4-Agent Pipeline 基础设施：
+基于 LangGraph 的 **4-Agent 自动化分析引擎**。输入分析目标，系统自动完成搜索采集 → 多维分析 → 报告撰写 → 质检审查全链路。**报告中每条结论都可追溯到原始信源 URL + 摘录 + 置信度**。
 
-| Product Line | 场景 | 入口 |
-|-------------|------|------|
-| **🔍 竞品分析** | 输入竞品名称 → 自动搜索采集 → 功能对比 → 报告输出 | Streamlit Tab 1 |
-| **🔎 Code Review** | 提交 PR 数据 → Claude+Codex 双轨审查 → 质量门禁 → DORA 指标 | Streamlit Tab 2 |
+### 支持的分析类型
+
+| 类型 | 输入示例 | 输出 | 适用场景 |
+|------|---------|------|---------|
+| 🔍 **竞品分析** | Notion, 飞书 | 功能矩阵 + SWOT + 定价对比 | 产品经理 |
+| 📊 **市场调研** | AI 代码审查工具市场 | TAM/SAM + 格局 + 趋势 | 战略部门 |
+| ⚙️ **技术选型** | React vs Vue 2026 | 功能/性能/社区/成熟度评分 | 技术负责人 |
+| 📋 **文档审计** | https://docs.example.com | 完整性/准确性/一致性报告 | 技术写作 |
 
 ---
 
@@ -20,20 +24,20 @@
 ```mermaid
 graph TB
     subgraph 用户层["👤 用户层"]
-        UI["🖥️ Streamlit Web UI<br/>Tab1 竞品分析 | Tab2 Code Review"]
-        CLI["💻 CLI + API<br/>run() 竞品 | review_pr() 审查"]
+        UI["🖥️ Streamlit Web UI<br/>分析类型选择 + 目标输入"]
+        CLI["💻 CLI (cli.py)<br/>命令行一键分析"]
     end
 
     subgraph 编排层["🎯 Orchestrator (LangGraph DAG)"]
-        ORCH["DAG 引擎<br/>━━━━━━━━━━━━<br/>• 条件路由与反馈闭环<br/>• PR 智能路由 (auto/claude/codex/all)<br/>• @mention 覆盖<br/>• trace_id 全链路追踪"]
+        ORCH["DAG 引擎<br/>━━━━━━━━━━━━<br/>• 状态管理与路由<br/>• 条件分支与反馈闭环<br/>• 按分析类型分发搜索策略<br/>• trace_id 全链路追踪"]
     end
 
-    subgraph Agent层["🤖 4-Agent Pipeline (双产品线共用)"]
+    subgraph Agent层["🤖 4-Agent Pipeline"]
         direction LR
-        C["🔍 Collector<br/>━━━━━━━━━<br/>PL1: 搜索+抓取<br/>PL2: PR采集+Diff解析<br/>━━━━━━━━━<br/>📦 CompetitorProfile / PullRequest"]
-        A["📊 Analyst<br/>━━━━━━━━━<br/>PL1: 功能对比+SWOT<br/>PL2: 双轨审查 (Claude+Codex)<br/>━━━━━━━━━<br/>📦 FeatureMatrix / ReviewIssue[]"]
-        W["📝 Writer<br/>━━━━━━━━━<br/>PL1: 7章竞品报告<br/>PL2: 8章审查报告<br/>━━━━━━━━━<br/>📦 StructuredReport / ReviewReport"]
-        R["✅ Reviewer<br/>━━━━━━━━━<br/>PL1: 质检+溯源<br/>PL2: 质量门禁+指标<br/>━━━━━━━━━<br/>📦 ReviewResult + DORA/AgentHub"]
+        C["🔍 Collector<br/>━━━━━━━━━<br/>按分析类型搜索<br/>• 竞品: 官网/G2/评测<br/>• 调研: 报告/新闻/财报<br/>• 选型: GitHub/StackShare<br/>• 审计: 文档站点抓取"]
+        A["📊 Analyst<br/>━━━━━━━━━<br/>按分析类型切换维度<br/>• 竞品: SWOT+功能矩阵<br/>• 调研: TAM+趋势+格局<br/>• 选型: 六维评分卡<br/>• 审计: 完整性检查"]
+        W["📝 Writer<br/>━━━━━━━━━<br/>按分析类型选模板<br/>• 7章竞品报告<br/>• 市场洞察报告<br/>• 选型对比报告<br/>• 审计报告"]
+        R["✅ Reviewer<br/>━━━━━━━━━<br/>编程化规则检查<br/>+ LLM 语义审查<br/>+ 溯源交叉验证"]
 
         C --> A --> W --> R
     end
@@ -46,55 +50,34 @@ graph TB
         OBS["📊 Observability<br/>Tracer · Cost · Audit · Guardrails"]
     end
 
+    subgraph 核心壁垒["🔗 核心壁垒"]
+        TRACE["全链路溯源<br/>━━━━━━━━━<br/>报告结论 → 引用标注<br/>→ Agent 执行轨迹<br/>→ 原始采集信源<br/>URL + 摘录 + 置信度"]
+    end
+
     UI --> ORCH
     CLI --> ORCH
     ORCH --> C
-    R -->|"✅ PASSED"| OUT["📄 报告输出 + 指标面板"]
+    R -->|"✅ PASSED"| OUT["📄 结构化报告 + 溯源面板"]
     R -.->|"❌ FAILED 回退重跑"| C
     R -.->|"❌ FAILED 回退重跑"| A
     R -.->|"❌ FAILED 回退重跑"| W
+    C --> TRACE
+    A --> TRACE
 
     style 用户层 fill:#e1f5fe,stroke:#0288d1
     style 编排层 fill:#fff3e0,stroke:#f57c00
     style Agent层 fill:#e8f5e9,stroke:#388e3c
     style 基础设施 fill:#f3e5f5,stroke:#7b1fa2
+    style 核心壁垒 fill:#fce4ec,stroke:#c62828
 ```
 
-> **核心理念**: 4-Agent DAG 流水线是基础设施，竞品分析和代码审查是两条平行的业务产品线。新增产品线只需扩展各 Agent 的输入检测分支。
-
----
-
-## 产品线详情
-
-### PL1: 竞品分析
-
-| Agent | 职责 | 输出 |
-|---|---|---|
-| Collector | Tavily 搜索 → 网页抓取 → LLM 结构化解析 | `CompetitorProfile` + Evidence |
-| Analyst | 功能维度对比 + SWOT 分析 + 市场洞察 | `FeatureMatrix` + `MarketInsight` |
-| Writer | 7 章节报告拼装 + Markdown 渲染 | `StructuredReport` |
-| Reviewer | 编程化检查 + LLM 交叉审查 + 溯源验证 | `ReviewResult` + 条件路由 |
-
-### PL2: Code Review（新增）
-
-| Agent | 职责 | 输出 |
-|---|---|---|
-| Collector | PR 数据采集 + unified diff 解析 | `PullRequest` + FileChange[] |
-| Analyst | Claude(架构/安全) + Codex(实现/测试) 双轨并行审查 | `ReviewIssue[]` + `ReviewScore` |
-| Writer | 8 章节 Markdown 审查报告 | `ReviewReport` |
-| Reviewer | 质量门禁判定 + DORA/AgentHub 七指标追踪 | `QualityGate` + `DORAMetrics` + `AgentHubMetrics` |
-
-**智能路由**: <50 行 → Codex 轻量审查 / 50-200 行 → 双 Agent 标准审查 / >200 行 → 深度双轨审查 / `@claude` `@codex` `@all` 覆盖自动决策
-
-**质量门禁**: overall≥6.0 + security≥7.0 + 零 critical issue → 通过 / overall≥8.5 + 零 critical + ≤1 high → 自动批准
+> **核心壁垒**：不是"生成一份报告"，而是"每句话都能追溯到原始信源"——4 层溯源链路（报告引用 → 参考来源 → Agent 轨迹 → 原始数据）。
 
 ---
 
 ## 快速开始
 
 ### 1. 安装
-
-**方式 A：Docker 一键启动（推荐）**
 
 ```bash
 git clone https://github.com/quannie255-star/comprtitor-agent--system.git
@@ -105,73 +88,40 @@ docker compose up
 
 浏览器访问 `http://localhost:8501`
 
-**方式 B：pip 本地安装**
+### 2. 命令行使用
 
-```bash
-git clone https://github.com/quannie255-star/comprtitor-agent--system.git
-cd comprtitor-agent--system
-pip install -e ".[dev]"
-```
-
-### 2. 配置
-
-```bash
-cp .env.example .env
-
-# 编辑 .env，填入 API Key（可选，无 Key 使用 Mock 模式）
-# LLM_API_KEY=sk-xxx      # OpenAI / DeepSeek
-# LLM_API_BASE=https://api.deepseek.com/v1  # 可选
-# TAVILY_API_KEY=tvly-xxx # 搜索 API（竞品分析用）
-```
-
-### 3. 运行测试
-
-```bash
-python -m pytest tests/ -v          # 173 条测试
-```
-
-### 4. 命令行使用
-
-**竞品分析**：
 ```python
 from src.core.orchestrator import Orchestrator
 
-orchestrator = Orchestrator({
+config = {
     'llm': {'provider': 'openai', 'model': 'gpt-4o', 'api_key': ''},
     'storage': {'traces_dir': './traces', 'outputs_dir': './outputs', 'artifacts_dir': './artifacts'},
-})
+}
+
+orchestrator = Orchestrator(config)
 
 # 竞品分析
-result = orchestrator.run('Notion', use_langgraph=False)
+result = orchestrator.run('Notion', analysis_type='competitor')
+
+# 市场调研
+result = orchestrator.run('AI代码审查工具市场', analysis_type='market_research')
+
+# 技术选型
+result = orchestrator.run('React vs Vue 2026', analysis_type='tech_evaluation')
+
+# 文档审计
+result = orchestrator.run('https://docs.example.com', analysis_type='doc_audit')
+
 print(result['report'][:500])
 ```
 
-**Code Review（Mock 模式，无需 API Key）**：
-```python
-result = orchestrator.review_pr({
-    'title': 'Fix JWT token refresh bug',
-    'description': 'Fixes token validation on each request.',
-    'author': 'dev1',
-    'changed_files': [
-        {'path': 'src/auth.py', 'additions': 30, 'deletions': 8},
-        {'path': 'tests/test_auth.py', 'additions': 45, 'deletions': 0},
-    ],
-    'total_additions': 75, 'total_deletions': 8,
-})
-print(result['report'][:500])
-# 查看评分和指标
-print(result['review_score'], result['dora_metrics'])
-```
-
-### 5. Streamlit 前端
+### 3. Streamlit 前端
 
 ```bash
 streamlit run src/api/routes.py
 ```
 
-浏览器访问 `http://localhost:8501`：
-- **Tab 1 "🔍 竞品分析"** — 输入竞品名称，查看分析报告和溯源面板
-- **Tab 2 "🔎 Code Review"** — 提交 PR 信息，查看双轨审查结果、评分仪表盘、DORA 指标
+选分析类型 → 输入目标 → 点击开始分析。报告中的 `[src_xxx]` 标注可点击溯源。
 
 ---
 
@@ -179,40 +129,28 @@ streamlit run src/api/routes.py
 
 ```
 ├── config/
-│   ├── settings.yaml         # 全局配置（LLM、搜索、Agent、Code Review 质量门禁）
-│   └── agents.yaml           # Agent 角色定义与 Prompt 模板（含 PL2 审查 Prompt）
+│   ├── settings.yaml         # 全局配置（LLM、搜索、Agent 编排）
+│   └── agents.yaml           # 4 种分析类型的 Prompt + 维度定义
 ├── src/
 │   ├── core/
-│   │   ├── schema.py         # 共享 Schema（Pydantic V2）：PL1 竞品 + PL2 代码审查
+│   │   ├── schema.py         # 共享 Schema（Pydantic V2, 30+ Model）
 │   │   ├── message_bus.py    # 发布/订阅消息总线
-│   │   └── orchestrator.py   # DAG 编排引擎 + PR 智能路由
+│   │   └── orchestrator.py   # DAG 编排引擎（LangGraph + 顺序 fallback）
 │   ├── agents/
-│   │   ├── base.py           # Agent 基类（LLM 封装、工具注册、可观测性注入）
-│   │   ├── collector.py      # 采集 Agent — PL1 搜索采集 / PL2 PR+diff 采集
-│   │   ├── analyst.py        # 分析 Agent — PL1 SWOT 对比 / PL2 双轨审查
-│   │   ├── writer.py         # 撰写 Agent — PL1 竞品报告 / PL2 审查报告
-│   │   └── reviewer.py       # 质检 Agent — PL1 溯源审查 / PL2 质量门禁+指标
-│   ├── tools/                # Tavily 搜索、网页抓取、数据结构化解析
+│   │   ├── base.py           # Agent 基类（LLM 封装、工具注册、可观测性）
+│   │   ├── collector.py      # 采集 Agent — 按分析类型切换搜索策略
+│   │   ├── analyst.py        # 分析 Agent — 按分析类型切换分析维度
+│   │   ├── writer.py         # 撰写 Agent — 按分析类型切换报告模板
+│   │   └── reviewer.py       # 质检 Agent — 交叉审查 + 溯源验证
+│   ├── tools/                # Tavily 搜索、网页抓取、数据解析
 │   ├── models/               # 分析模型（feature、market、report、review）
-│   ├── storage/              # TraceStore + ArtifactStore 持久化
+│   ├── storage/              # TraceStore + ArtifactStore
 │   ├── observability/        # LLMTracer、CostTracker、AuditLogger、Guardrails
 │   └── api/
-│       └── routes.py         # Streamlit 前端（Tab1 竞品分析 + Tab2 Code Review）
-├── tests/
-│   ├── test_schema.py        # Schema 测试（23 条）
-│   ├── test_collector.py     # Collector 测试（20 条）
-│   ├── test_analyst.py       # Analyst 测试（12 条）
-│   ├── test_writer.py        # Writer 测试（23 条）
-│   ├── test_reviewer.py      # Reviewer 测试（27 条）
-│   ├── test_orchestrator.py  # Orchestrator 测试（10 条）
-│   ├── test_code_review.py   # Code Review 端到端测试（19 条）
-│   └── ...                   # 基类 + 可观测性测试
-├── outputs/                  # 生成的报告
-├── traces/                   # 执行轨迹
-├── artifacts/                # 中间产物
-├── ARCHITECTURE.md           # 架构文档（Mermaid + ADR）
-├── CHANGELOG.md
-└── CLAUDE.md
+│       └── routes.py         # Streamlit 前端
+├── tests/                    # 173 条测试
+├── ARCHITECTURE.md           # 架构文档（Mermaid + 3 ADR）
+└── CHANGELOG.md
 ```
 
 ---
@@ -223,13 +161,11 @@ streamlit run src/api/routes.py
 |------|------|------|
 | DAG 编排 | LangGraph | StateGraph + 条件路由 + 反馈闭环 |
 | LLM 调用 | LangChain (OpenAI/DeepSeek/Anthropic) | 统一抽象层 |
-| 数据模型 | Pydantic V2 | 竞品 Schema + 代码审查 Schema（30+ Model） |
-| 搜索引擎 | Tavily API | 竞品分析信源采集 |
-| 前端 | Streamlit | 双 Tab 界面 + 实时状态 |
-| 可观测性 | LLMTracer / CostTracker / AuditLogger / Guardrails | 调用链、费用、审计、安全 |
+| 数据模型 | Pydantic V2 | 30+ Model，字段级溯源 |
+| 搜索引擎 | Tavily API | 按分析类型切换搜索策略 |
+| 前端 | Streamlit | 分析类型选择 + 溯源高亮 |
+| 可观测性 | Tracer / Cost / Audit / Guardrails | 全链路追踪 |
 | 测试 | Pytest | 173 条，覆盖正常 + 降级路径 |
-| 容器化 | Docker + Compose | 一键部署 |
-| CI/CD | GitHub Actions | test + lint + type check |
 
 ## License
 

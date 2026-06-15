@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.3.0] — 2026-06-15
+
+### 差异化升级 — 聚焦分析引擎
+
+- **移除 Code Review Tab**：UI 聚焦分析场景，Code Review 代码保留在 backend 作为架构扩展性证明
+- **多分析类型支持**：新增 4 种分析类型（竞品分析 / 市场调研 / 技术选型 / 文档审计）
+- **Collector 按类型搜索**：根据分析类型切换搜索 query 模板（官网/GitHub/行业报告/文档站点）
+- **配置化 Prompt**：`agents.yaml` 为每种分析类型定义独立的 Prompt 模板和维度列表
+- **分析类型选择器**：Streamlit UI 新增 selectbox，动态 placeholder
+
+### 定位
+
+> 可溯源的自动化分析引擎 — 输入目标 → 自动调研 → 可溯源报告
+
 ## [0.2.0] — 2026-06-15
 
 ### 新增 — Product Line 2: Code Review
