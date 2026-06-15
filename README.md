@@ -1,7 +1,6 @@
 # 🔍 AI 驱动的竞品分析 Agent 协作系统
 
 [![CI](https://github.com/quannie255-star/comprtitor-agent--system/actions/workflows/ci.yml/badge.svg)](https://github.com/quannie255-star/comprtitor-agent--system/actions)
-[![Coverage](https://codecov.io/gh/quannie255-star/comprtitor-agent--system/branch/master/graph/badge.svg)](https://codecov.io/gh/quannie255-star/comprtitor-agent--system)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![Tests](https://img.shields.io/badge/tests-130%20passed-green.svg)](https://github.com/quannie255-star/comprtitor-agent--system)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
@@ -88,10 +87,10 @@ graph TB
 **方式 A：Docker 一键启动（推荐）**
 
 ```bash
-git clone <repo-url>
-cd ai-competitive-analysis
+git clone https://github.com/quannie255-star/comprtitor-agent--system.git
+cd comprtitor-agent--system
 cp .env.example .env          # 编辑 .env 填入 API Key（可选）
-docker-compose up
+docker compose up
 ```
 
 浏览器访问 `http://localhost:8501`
@@ -99,8 +98,8 @@ docker-compose up
 **方式 B：pip 本地安装**
 
 ```bash
-git clone <repo-url>
-cd ai-competitive-analysis
+git clone https://github.com/quannie255-star/comprtitor-agent--system.git
+cd comprtitor-agent--system
 pip install -e ".[dev]"
 ```
 
@@ -126,7 +125,7 @@ pytest tests/ -v
 
 ```bash
 python -c "
-from core.orchestrator import Orchestrator
+from src.core.orchestrator import Orchestrator
 
 config = {
     'llm': {'provider': 'openai', 'model': 'gpt-4o', 'api_key': ''},
