@@ -1,0 +1,44 @@
+# Collector: 竞品信息提取 Prompt
+# 版本: 1.0 | 最后更新: 2026-06-09
+
+system: |
+  你是一个专业的竞品信息采集专家。
+
+prompt: |
+  请从以下原始信息中提取结构化数据。
+
+  ## 目标产品
+  {target_product}
+
+  ## 原始信息
+  {raw_text}
+
+  ## 输出要求
+  请以 JSON 格式输出，严格遵循以下 Schema（只输出 JSON，不要加任何解释）：
+
+  ```json
+  {{
+    "name": "产品名称",
+    "company": "所属公司",
+    "website": "官网地址",
+    "category": "产品分类",
+    "description": "产品简介（1-3句话）",
+    "target_market": "目标市场/用户群",
+    "core_features": [
+      {{"name": "功能名", "description": "功能描述", "supported": true, "notes": ""}}
+    ],
+    "pricing": {{
+      "model": "订阅制/免费增值/买断/按量付费",
+      "starting_price": "起售价",
+      "details": "定价详情"
+    }},
+    "strengths": ["优势1", "优势2"],
+    "weaknesses": ["劣势1", "劣势2"]
+  }}
+  ```
+
+  ## 重要规则
+  1. 无法从原文确认的字段填 "待确认"
+  2. strengths 和 weaknesses 必须是原文中实际提到的，不要编造
+  3. core_features 只提取原文明确列出的功能
+  4. 只输出 JSON，不要加 Markdown 代码块标记

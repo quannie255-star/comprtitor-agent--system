@@ -9,14 +9,14 @@ Agent 基类
 """
 
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from datetime import datetime
-from typing import Any, Callable, Optional
+from typing import Any
 from uuid import uuid4
 
 from loguru import logger
 
 from core.message_bus import Message, MessageBus, MessageType
-
 
 # ============================================================
 # 工具定义
@@ -56,15 +56,17 @@ class BaseAgent(ABC):
     def __init__(
         self,
         name: str,
-        message_bus: Optional[MessageBus] = None,
-        llm: Optional[Any] = None,  # LangChain ChatModel，后续由工厂创建
-        config: Optional[dict] = None,
+        message_bus: MessageBus | None = None,
+        llm: Any | None = None,  # LangChain ChatModel，后续由工厂创建
+        config: dict | None = None,
     ):
         self.name = name
         self.bus = message_bus
         self.llm = llm
         self.config = config or {}
         self.tools: dict[str, Tool] = {}
+        self._tracer = None   # LLMTracer，由 Orchestrator 注入
+        self._audit = None    # AuditLogger，由 Orchestrator 注入
         self.execution_log: list[dict] = []  # 执行步骤日志
 
     @property
@@ -87,7 +89,7 @@ class BaseAgent(ABC):
 
     def send_message(
         self,
-        receiver: Optional[str],
+        receiver: str | None,
         msg_type: MessageType,
         payload: dict,
         trace_id: str = "",
@@ -112,10 +114,10 @@ class BaseAgent(ABC):
         action: str,
         input_summary: str = "",
         output_summary: str = "",
-        evidence_refs: Optional[list[str]] = None,
-        error: Optional[str] = None,
-        started_at: Optional[datetime] = None,
-        finished_at: Optional[datetime] = None,
+        evidence_refs: list[str] | None = None,
+        error: str | None = None,
+        started_at: datetime | None = None,
+        finished_at: datetime | None = None,
         duration_ms: float = 0.0,
     ) -> dict:
         """记录执行步骤"""
@@ -143,11 +145,33 @@ class BaseAgent(ABC):
     def _invoke_llm(self, prompt: str, system_prompt: str = "") -> str:
         """调用 LLM（抽象封装，子类可直接使用）
 
-        当前为占位实现，第 3 步开始会注入真实的 LangChain ChatModel。
+        内置 LLM 调用链追踪、审计日志、安全护栏。
         """
+        tracer = getattr(self, "_tracer", None)
+        audit = getattr(self, "_audit", None)
+        guard = getattr(self, "_guardrails", None)
+
+        # --- 安全护栏：输入检查 ---
+        if guard:
+            prompt = guard.sanitize(prompt)
+            ok, reason = guard.check_input(prompt, agent_name=self.agent_name)
+            if not ok:
+                from observability.guardrails import GuardrailViolation
+                raise GuardrailViolation(reason, content=prompt[:200])
+
         if self.llm is None:
             logger.warning(f"[{self.agent_name}] LLM 未配置，返回占位结果")
             return f"(LLM_PLACEHOLDER:{self.agent_name}) 占位输出 — {prompt[:50]}..."
+
+        # --- 追踪开始 ---
+        call_id = ""
+        if tracer:
+            call_id = tracer.start(
+                agent_name=self.agent_name,
+                model=getattr(self.llm, "model_name", "unknown"),
+                prompt=prompt,
+                provider=getattr(self.llm, "_llm_type", "openai"),
+            )
 
         # LangChain ChatModel 统一接口
         from langchain_core.messages import HumanMessage, SystemMessage
@@ -157,8 +181,43 @@ class BaseAgent(ABC):
             messages.append(SystemMessage(content=system_prompt))
         messages.append(HumanMessage(content=prompt))
 
-        response = self.llm.invoke(messages)
-        return response.content
+        try:
+            response = self.llm.invoke(messages)
+            output = response.content if hasattr(response, 'content') else str(response)
+            tokens = 0
+            if hasattr(response, 'response_metadata'):
+                usage = response.response_metadata.get("token_usage", {}) or response.response_metadata.get("usage", {})
+                tokens = usage.get("total_tokens", 0)
+
+            # --- 追踪结束 ---
+            if tracer and call_id:
+                span = tracer.end(call_id, output=output, tokens_used=tokens, success=True)
+
+            # --- 审计日志 ---
+            if audit:
+                audit.log_llm_call(
+                    agent_name=self.agent_name,
+                    model=getattr(self.llm, "model_name", "unknown"),
+                    latency_ms=span.latency_ms if tracer else 0,
+                    tokens=tokens,
+                    success=True,
+                )
+
+            # --- 安全护栏：输出检查 ---
+            if guard:
+                ok, reason = guard.check_output(output, agent_name=self.agent_name)
+                if not ok:
+                    logger.warning(f"[{self.agent_name}] 输出越狱检测: {reason}")
+
+            return output
+
+        except Exception as e:
+            # --- 追踪异常 ---
+            if tracer and call_id:
+                tracer.end(call_id, output="", tokens_used=0, success=False, error=str(e))
+            if audit:
+                audit.log_warning(self.agent_name, f"LLM 调用失败: {e}")
+            raise
 
     # --- 抽象方法 ---
 

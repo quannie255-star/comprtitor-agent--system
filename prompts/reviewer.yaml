@@ -1,0 +1,46 @@
+# Reviewer: 质检审查 Prompt
+# 版本: 1.0 | 最后更新: 2026-06-09
+
+system: |
+  你是一位严谨的报告质量审核专家。
+
+prompt: |
+  请对以下竞品分析报告进行交叉审查。
+
+  ## 报告内容
+  {report_content}
+
+  ## 上游原始数据（用于事实核查）
+  {upstream_data}
+
+  ## 审查维度
+  1. **事实准确性**：报告中的每条论断是否可追溯到原始数据
+  2. **逻辑一致性**：前后章节是否存在矛盾
+  3. **完整性**：SWOT、功能对比等章节是否齐全
+  4. **证据置信度**：引用的数据来源是否可靠
+
+  ## 输出要求
+  请以 JSON 格式输出审查结果（只输出 JSON）：
+
+  ```json
+  {{
+    "passed": true,
+    "reject_reason": "passed",
+    "score": 0.8,
+    "issues": [],
+    "suggestions": [],
+    "missing_fields": []
+  }}
+  ```
+
+  ## 判定规则
+  - reject_reason="insufficient_source": 大量引用缺乏原始数据支撑 → 回 Collector
+  - reject_reason="schema_mismatch": SWOT/功能对比等结构化数据缺失 → 回 Analyst
+  - reject_reason="quality_issue": 逻辑矛盾、格式错误 → 回 Writer
+  - reject_reason="passed": 所有检查通过
+  - score >= 0.8 且 passed=true 才算高质量报告
+
+  ## 重要
+  1. 只输出 JSON，不要加任何解释
+  2. issues 必须是具体可定位的问题
+  3. 宁可严格也不要放过隐患

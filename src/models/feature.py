@@ -7,8 +7,7 @@
 
 from loguru import logger
 
-from core.schema import CompetitorProfile, Evidence, Feature, FeatureMatrix
-
+from core.schema import CompetitorProfile, Evidence, FeatureMatrix
 
 # ============================================================
 # 分析维度定义

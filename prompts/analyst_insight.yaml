@@ -1,0 +1,38 @@
+# Analyst: 市场洞察 Prompt
+# 版本: 1.0 | 最后更新: 2026-06-09
+
+system: |
+  你是一位资深的行业分析师。
+
+prompt: |
+  请基于以下竞品信息，生成市场洞察分析。
+
+  ## 竞品信息
+  {competitor_data}
+
+  ## 行业背景
+  {industry_context}
+
+  ## 输出要求
+  请以 JSON 格式输出（只输出 JSON）：
+
+  ```json
+  {{
+    "swot": {{
+      "strengths": ["优势1", "优势2"],
+      "weaknesses": ["劣势1", "劣势2"],
+      "opportunities": ["机会1", "机会2"],
+      "threats": ["威胁1", "威胁2"]
+    }},
+    "market_position": "一句话描述市场定位",
+    "differentiation_points": ["差异1", "差异2"],
+    "trends": ["趋势1", "趋势2"]
+  }}
+  ```
+
+  ## 规则
+  1. SWOT 每一项必须基于原文，不得编造
+  2. opportunities 和 threats 聚焦行业层面
+  3. differentiation_points 必须指出与同类产品的具体差异
+  4. trends 关注技术趋势、用户需求变化、商业模式演进
+  5. 只输出 JSON

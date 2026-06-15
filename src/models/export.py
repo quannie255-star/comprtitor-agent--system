@@ -7,7 +7,6 @@
 
 from core.schema import StructuredReport
 
-
 HTML_TEMPLATE = """<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -15,14 +14,14 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 <title>{title}</title>
 <style>
   body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans SC', sans-serif; max-width: 900px; margin: 40px auto; padding: 0 20px; color: #1a1a2e; line-height: 1.8; }}
-  h1 {{ color: #1E6FE9; border-bottom: 3px solid #1E6FE9; padding-bottom: 12px; }}
-  h2 {{ color: #1E6FE9; margin-top: 36px; border-bottom: 1px solid #e0e0e0; padding-bottom: 8px; }}
+  h1 {{ color: #165DFF; border-bottom: 3px solid #165DFF; padding-bottom: 12px; }}
+  h2 {{ color: #165DFF; margin-top: 36px; border-bottom: 1px solid #e0e0e0; padding-bottom: 8px; }}
   h3 {{ color: #334155; margin-top: 24px; }}
-  table {{ border-collapse: collapse; width: 100%; margin: 16px 0; }}
-  th, td {{ border: 1px solid #e0e0e0; padding: 10px 14px; text-align: left; }}
-  th {{ background: #F0F4FF; font-weight: 600; }}
+  table {{ border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.95em; }}
+  th, td {{ border: 1px solid #E2E8F0; padding: 10px 14px; text-align: left; }}
+  th {{ background: #E8F0FF; color: #165DFF; font-weight: 600; }}
+  tr:nth-child(even) {{ background: #F8FAFC; }}
   .meta {{ color: #6B7280; font-size: 0.9em; }}
-  .source {{ background: #E8F0FE; color: #1E6FE9; padding: 1px 6px; border-radius: 4px; font-family: monospace; font-size: 0.85em; }}
   .swot-strength {{ color: #10B981; }}
   .swot-weakness {{ color: #EF4444; }}
   .swot-opportunity {{ color: #1E6FE9; }}
@@ -40,16 +39,35 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
 
 class ReportExporter:
-    """报告导出器 — Markdown → HTML"""
+    """报告导出器 — Markdown → HTML（与 Streamlit 渲染一致）"""
 
     @staticmethod
     def markdown_to_html(markdown_text: str) -> str:
-        """将 Markdown 转为 HTML 正文（不含 head/style）"""
+        """将 Markdown 转为 HTML 正文，包含锚点和溯源高亮"""
+        import re
+
+        # 1. 锚点注入（与 Streamlit 展示一致）
+        def add_anchor(match):
+            hashes = match.group(1)
+            title = match.group(2).strip()
+            anchor = re.sub(r'[^\w一-鿿]+', '-', title).strip('-').lower()
+            return f'<a name="{anchor}"></a>\n{hashes} {title}'
+
+        md = re.sub(r'^(#{2,3})\s+(.+)$', add_anchor, markdown_text, flags=re.MULTILINE)
+
+        # 2. 溯源高亮
+        md = re.sub(
+            r'\[(src_\w+)\]',
+            r'<code style="background:#EFF6FF;color:#3B82F6;padding:1px 5px;border-radius:3px;font-size:0.85em">\1</code>',
+            md,
+        )
+
+        # 3. Markdown → HTML
         try:
             import markdown
             return markdown.markdown(
-                markdown_text,
-                extensions=["tables", "fenced_code", "codehilite", "toc"],
+                md,
+                extensions=["tables", "fenced_code", "toc"],
             )
         except ImportError:
             return _simple_md_to_html(markdown_text)

@@ -7,12 +7,11 @@
 
 import json
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 from loguru import logger
 
 from core.schema import AnnotatedFinding, CompetitorProfile, Evidence, Feature, Pricing
-
 
 # ============================================================
 # 解析提示词模板

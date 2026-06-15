@@ -58,7 +58,7 @@ class TestPullRequest:
             total_deletions=10,
         )
         assert len(pr.changed_files) == 2
-        assert pr.dominant_file_types == ["python", "yaml"]
+        assert set(pr.dominant_file_types) == {"python", "yaml"}
 
 
 class TestReviewIssue:

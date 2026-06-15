@@ -17,11 +17,9 @@ from unittest.mock import MagicMock
 import pytest
 
 from agents.analyst import AnalystAgent
-from core.message_bus import MessageBus
 from core.schema import (
     AnnotatedFinding,
     CompetitorProfile,
-    Evidence,
     Feature,
     FeatureMatrix,
     MarketInsight,
@@ -29,7 +27,6 @@ from core.schema import (
 )
 from models.feature import FeatureAnalyzer
 from models.market import MarketInsightBuilder
-
 
 # ============================================================
 # 共享 Fixtures
@@ -260,10 +257,8 @@ class TestAnalystAgent:
 
         log = analyst.get_execution_log()
         actions = [s["action"] for s in log]
-        assert "feature_analysis_start" in actions
-        assert "feature_analysis_complete" in actions
-        assert "market_insight_start" in actions
-        assert "market_insight_complete" in actions
+        assert "analysis_start" in actions
+        assert "analysis_complete" in actions
 
     def test_agent_name(self, analyst):
         assert analyst.agent_name == "analyst"

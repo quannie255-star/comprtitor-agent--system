@@ -6,8 +6,6 @@
 """
 
 import os
-from datetime import datetime
-from typing import Optional
 
 from core.schema import (
     CompetitorProfile,
@@ -63,8 +61,8 @@ class ReportRenderer:
         for i, p in enumerate(profiles, 1):
             lines.append(f"### 2.{i} {p.name} ({p.company})")
             lines.append("")
-            lines.append(f"| 属性 | 信息 |")
-            lines.append(f"|------|------|")
+            lines.append("| 属性 | 信息 |")
+            lines.append("|------|------|")
             lines.append(f"| 官网 | {p.website} |")
             lines.append(f"| 分类 | {p.category} |")
             lines.append(f"| 目标市场 | {p.target_market} |")
@@ -100,7 +98,7 @@ class ReportRenderer:
         return "\n".join(lines)
 
     @staticmethod
-    def render_feature_matrix(fm: Optional[FeatureMatrix]) -> str:
+    def render_feature_matrix(fm: FeatureMatrix | None) -> str:
         """功能对比矩阵 → Markdown 表格"""
         if fm is None:
             return "## 三、功能对比\n\n*暂无功能对比数据*\n\n"
@@ -199,7 +197,7 @@ class ReportRenderer:
         return "\n".join(lines)
 
     @staticmethod
-    def render_review_section(review: Optional[ReviewResult]) -> str:
+    def render_review_section(review: ReviewResult | None) -> str:
         """质检结论章节"""
         if review is None:
             return ""

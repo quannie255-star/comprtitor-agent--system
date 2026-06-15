@@ -10,18 +10,14 @@ DAG 编排引擎端到端集成测试
 6. Orchestrator 执行摘要
 """
 
-import json
 import os
 import tempfile
-from unittest.mock import MagicMock
 
 import pytest
 
 from core.orchestrator import Orchestrator
-from storage.trace_store import TraceStore
 from storage.artifact_store import ArtifactStore
-from core.schema import RejectReason
-
+from storage.trace_store import TraceStore
 
 # ============================================================
 # Mock LLM

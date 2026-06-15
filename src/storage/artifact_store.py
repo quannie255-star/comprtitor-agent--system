@@ -7,9 +7,8 @@
 
 import json
 import os
-from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from loguru import logger
 
@@ -41,7 +40,7 @@ class ArtifactStore:
         trace_id: str,
         stage: str,
         data: Any,
-        filename: Optional[str] = None,
+        filename: str | None = None,
     ) -> str:
         """保存中间产物
 
@@ -94,12 +93,12 @@ class ArtifactStore:
 
         return str(filepath)
 
-    def load_artifact(self, trace_id: str, filename: str) -> Optional[dict]:
+    def load_artifact(self, trace_id: str, filename: str) -> dict | None:
         """加载指定产物"""
         filepath = self.base_dir / trace_id / filename
         if not filepath.exists():
             return None
-        with open(filepath, "r", encoding="utf-8") as f:
+        with open(filepath, encoding="utf-8") as f:
             return json.load(f)
 
     def list_artifacts(self, trace_id: str) -> list[str]:

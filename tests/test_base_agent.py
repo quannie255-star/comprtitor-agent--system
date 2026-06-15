@@ -9,11 +9,9 @@ Agent 基类与消息总线单元测试
 5. 端到端：两个 Agent 通过 MessageBus 通信
 """
 
-import pytest
 
-from core.message_bus import Message, MessageBus, MessageType
 from agents.base import BaseAgent, Tool
-
+from core.message_bus import Message, MessageType
 
 # ============================================================
 # MessageBus

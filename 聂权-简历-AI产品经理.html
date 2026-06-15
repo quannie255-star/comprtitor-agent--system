@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+    font-family: 'Microsoft YaHei', 'PingFang SC', 'Noto Sans SC', sans-serif;
+    font-size: 10.5pt; line-height: 1.8; color: #1a1a1a;
+    max-width: 210mm; margin: 0 auto; padding: 20mm 18mm;
+    background: #fff;
+}
+h1 {
+    font-size: 22pt; text-align: center; margin-bottom: 2mm; padding-bottom: 4mm;
+    border-bottom: 2.5px solid #2563eb; letter-spacing: 2pt;
+}
+.subtitle {
+    text-align: center; font-size: 9pt; color: #6b7280; margin-bottom: 2mm;
+}
+.subtitle strong { color: #1f2937; }
+h2 {
+    font-size: 13pt; margin-top: 10mm; margin-bottom: 3mm; padding-bottom: 2mm;
+    border-bottom: 1.2px solid #e5e7eb; color: #1e40af;
+}
+h3 {
+    font-size: 11pt; margin-top: 5mm; margin-bottom: 2mm; color: #1f2937;
+}
+p { margin: 1mm 0; }
+blockquote {
+    margin: 3mm 0 4mm 0; padding: 3mm 6mm; background: #f0fdf4;
+    border-left: 3px solid #22c55e; color: #374151; font-size: 9.5pt;
+    border-radius: 2px;
+}
+ul { margin: 1mm 0; padding-left: 6mm; }
+li { margin-bottom: 1.2mm; }
+strong { color: #111827; }
+table {
+    width: 100%; border-collapse: collapse; margin: 4mm 0; font-size: 9.5pt;
+}
+th {
+    background: #f3f4f6; padding: 2.5mm 3mm; text-align: left; font-weight: 600;
+    border-bottom: 1.5px solid #d1d5db;
+}
+td { padding: 2mm 3mm; border-bottom: 1px solid #f3f4f6; vertical-align: top; }
+a { color: #2563eb; text-decoration: none; }
+hr { border: none; border-top: 1px solid #e5e7eb; margin: 6mm 0; }
+@media print {
+    body { padding: 0; }
+    @page { size: A4; margin: 20mm 18mm; }
+}
+</style></head>
+<body>
+<h1>聂权</h1>
+<p class="subtitle"><strong>AI 产品经理实习生 | Multi-Agent 架构 · 数据驱动 · 工程落地</strong></p>
+<p>📞 137-9107-2007 | 📧 niequan2024@ruc.edu.cn | 🐙 <a href="https://github.com/quannie255-star">github.com/quannie255-star</a><br />
+📍 北京 | 🗓️ 6月下旬可到岗，每周5天</p>
+<hr />
+<h2>教育背景</h2>
+<p><strong>中国人民大学</strong> | 数据科学与大数据技术（理学学士） | 2024.09 - 2028.06</p>
+<p><strong>核心课程</strong>：数学分析(91)、统计软件(88)、人工智能与Python(87)、机器学习、数据结构与算法</p>
+<p><strong>竞赛荣誉</strong>：
+- 美国大学生数学建模竞赛 <strong>M 奖</strong>（前 10%）
+- 全国大学生统计建模大赛 <strong>二等奖</strong>
+- 大学生创新创业训练计划 <strong>国家级立项</strong>（项目负责人）</p>
+<hr />
+<h2>个人优势</h2>
+<ul>
+<li><strong>Multi-Agent 产品落地</strong>：独立完成 2 个 Multi-Agent 系统从 0 到 1，覆盖需求定义、Schema 设计、DAG 编排、Eval 质量闭环、前端交付全链路，沉淀 <a href="https://github.com/quannie255-star/comprtitor-agent--system/blob/master/VIBECODING_PLAYBOOK.md">Vibecoding 实战手册</a> 记录 20+ LLM 工程踩坑经验。</li>
+<li><strong>Agent 架构设计</strong>：深入 DAG 任务流转与 Orchestrator 协调机制，实践条件路由、反馈闭环、大小模型路由、Human-in-the-loop 等多种 Agentic 设计模式。</li>
+<li><strong>数据驱动迭代</strong>：精通 Python + SQL 数据分析，具备 A/B 测试设计与 Eval 体系搭建经验，能用量化指标（准确率、可用率、Token 成本）驱动产品决策。</li>
+<li><strong>AI Native 交付</strong>：熟练运用 Vibe Coding 模式，通过结构化 Plan-and-Execute 工作流引导 AI 编程工具完成快速验证，将单项目周期从周级压缩至天级。</li>
+</ul>
+<hr />
+<h2>项目经历</h2>
+<h3>AgentHub — 多 AI Agent 协作平台</h3>
+<p><strong>独立开发</strong> | 2026.04 - 至今 | <a href="https://github.com/quannie255-star/AgentHub">github.com/quannie255-star/AgentHub</a></p>
+<blockquote>
+<p>一句话：IM 聊天式多 Agent 调度平台，用户用自然语言并行指挥多个 AI Agent（Claude Code / Codex CLI）协同完成任务。</p>
+</blockquote>
+<ul>
+<li><strong>【任务拆解与路由】</strong> 自研 TaskParser 支持编号列表、逗号分隔、@-mention 三种输入模式，配合关键词匹配 + LLM 双路径路由（AgentRouter），将复杂指令的 Agent 分配准确率从 70% 提升至 90%+。支持 3 次重试 + fallback Agent 降级策略。</li>
+<li><strong>【实时流式架构】</strong> 设计 FastAPI + SSE（Server-Sent Events）推送架构，自研异步 MessageBus（asyncio.Queue per session），实现 Agent 执行进度双阶段流式渲染（replay 历史 + live 增量），避免消息丢失。</li>
+<li><strong>【插件化 Agent 适配】</strong> 定义 AbstractAgentAdapter 抽象基类，通过 AdapterRegistry 统一管理 Claude Code / Codex CLI 等外部 Agent 的 asyncio subprocess 生命周期，新增 Agent 类型只需实现 3 个方法。</li>
+<li><strong>【工程交付】</strong> 293 条测试全绿，20 个 Pydantic V2 Schema 覆盖全部 API 契约，Repository 模式（aiosqlite）实现存储可替换，Docker Compose 前后端分离部署，GitHub Actions 4-job CI（test + lint + build + integration smoke test）。</li>
+</ul>
+<hr />
+<h3>AI 驱动的竞品分析 Agent 协作系统</h3>
+<p><strong>独立开发</strong> | 2026.04 - 至今 | <a href="https://github.com/quannie255-star/comprtitor-agent--system">github.com/quannie255-star/comprtitor-agent--system</a></p>
+<blockquote>
+<p>一句话：基于 LangGraph 的 4-Agent 竞品分析流水线，自动完成"搜索采集 → 功能对比 → 报告撰写 → 质检审查"全链路，20 分钟内输出可溯源深度研报。</p>
+</blockquote>
+<ul>
+<li><strong>【DAG 编排与反馈闭环】</strong> 基于 LangGraph StateGraph 构建 Collector → Analyst → Writer → Reviewer 流水线，设计 3 种 RejectReason（信源不足/ Schema 缺失/ 质量问题）的条件路由，质检驳回自动回退到对应 Agent 重跑（最多 3 轮）。同时内置顺序 fallback 模式保证 LangGraph 不可用时的系统可用性。</li>
+<li><strong>【双轨质检机制】</strong> Reviewer 采用"编程化规则检查 + LLM 语义审查"双轨并行：确定性规则（信源完整性、Schema 一致性、竞品名匹配）由 Python 硬编码保证判定 100% 一致；语义判断（逻辑矛盾、事实核查）由 LLM 覆盖，两者合并评分后将报告可用率从 60% 提升至 85%+。</li>
+<li><strong>【全链路溯源体系】</strong> 设计 Evidence → AnnotatedFinding 字段级溯源模型，报告中每条结论精确绑定原始信源 URL + 摘录 + 置信度，形成"报告引用 → 参考来源 → Agent 执行轨迹 → 原始采集数据"4 层可逆向验证链路，降低业务方对 AI 黑盒的信任门槛。</li>
+<li><strong>【可观测性基础设施】</strong> 自研 LLMTracer（调用链追踪）、CostTracker（多模型成本对比）、AuditLogger（审计日志）、Guardrails（内容安全护栏）四大可观测性组件，每次分析生成完整 trace 档案（timeline + 消息日志 + Agent 步骤 + 中间产物）。</li>
+<li><strong>【工程规范】</strong> 130 条测试覆盖正常路径 + LLM 降级路径，支持 OpenAI / DeepSeek / Anthropic 多 LLM 统一调用层，Docker 一键部署，GitHub Actions CI/CD，<a href="https://github.com/quannie255-star/comprtitor-agent--system/blob/master/ARCHITECTURE.md">ARCHITECTURE.md</a> 含 3 个架构决策记录（ADR）。</li>
+</ul>
+<hr />
+<h3>异构算力协同调度平台</h3>
+<p><strong>大创项目负责人</strong> | 2026.03 - 至今 | 国家级立项</p>
+<ul>
+<li>访谈 3 个实验室验证算力闲置痛点，选择 Kubernetes 插件形态降低接入成本</li>
+<li>将部署流程从手动 1 天缩短至 10 分钟，校内试点预期提升算力利用率 20%</li>
+</ul>
+<hr />
+<h2>核心技能</h2>
+<table>
+<thead>
+<tr>
+<th>类别</th>
+<th>技能</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>产品能力</strong></td>
+<td>PRD 撰写、用户故事梳理、Figma 原型设计、指标体系搭建、A/B 测试设计</td>
+</tr>
+<tr>
+<td><strong>AI &amp; Agent</strong></td>
+<td>Prompt 工程（Few-shot / CoT）、Multi-Agent 编排（LangGraph）、RAG 架构、Eval 体系搭建、防幻觉策略、Bad Case 分析方法、大小模型路由、Human-in-the-loop</td>
+</tr>
+<tr>
+<td><strong>工程能力</strong></td>
+<td>Python、SQL、Pydantic V2、FastAPI、Docker、Git、GitHub Actions CI/CD、Streamlit</td>
+</tr>
+<tr>
+<td><strong>技术认知</strong></td>
+<td>熟悉 LLM / RAG / Embedding 能力边界与典型失败模式，了解 K8s 基础概念，能高效对接算法与工程团队</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>开源与协作</h2>
+<ul>
+<li>🐙 GitHub: <a href="https://github.com/quannie255-star">github.com/quannie255-star</a> — 2 个 Multi-Agent 开源项目，累计 400+ 测试用例</li>
+<li>📖 <a href="https://github.com/quannie255-star/comprtitor-agent--system/blob/master/VIBECODING_PLAYBOOK.md">Vibecoding 实战手册</a> — Plan-and-Execute 工作流 + Pydantic V2 踩坑 + LLM JSON 解析 20+ 工程经验</li>
+<li>🏗️ <a href="https://github.com/quannie255-star/comprtitor-agent--system/blob/master/ARCHITECTURE.md">竞品分析系统 ARCHITECTURE.md</a> — Mermaid 架构图 + 3 个 ADR</li>
+</ul>
+</body>
+</html>

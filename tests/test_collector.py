@@ -10,18 +10,13 @@
 6. source_pool 构建与溯源验证
 """
 
-import json
-from unittest.mock import MagicMock, patch
 
 import pytest
 
 from agents.collector import CollectorAgent
-from core.message_bus import MessageBus
-from core.schema import CompetitorProfile, Evidence
 from tools.data_parser import DataParser
 from tools.web_scraper import WebScraperTool
 from tools.web_search import WebSearchTool
-
 
 # ============================================================
 # WebSearchTool

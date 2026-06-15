@@ -8,18 +8,17 @@ Benchmark 评估脚本
 """
 
 import json
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from core.orchestrator import Orchestrator
-from core.schema import CompetitorProfile
 
 
 def load_ground_truth():
     path = os.path.join(os.path.dirname(__file__), "ground_truth.json")
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         return json.load(f)
 
 

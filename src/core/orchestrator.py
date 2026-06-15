@@ -106,6 +106,7 @@ class Orchestrator:
         analysis_dimensions: list[str] | None = None,
         use_langgraph: bool = True,
         target_products: list[str] | None = None,
+        analysis_type: str = "competitor",
     ) -> dict:
         """执行完整竞品分析流水线
 
@@ -114,22 +115,23 @@ class Orchestrator:
             analysis_dimensions: 分析维度列表
             use_langgraph: 是否使用 LangGraph（False 则用顺序 fallback）
             target_products: 多竞品列表（可选，为空时用 [target_product]）
+            analysis_type: 分析类型 (competitor/market_research/tech_evaluation/doc_audit)
 
         Returns:
             最终 AgentState
         """
         products = target_products or [target_product]
         dimensions = analysis_dimensions or ["核心功能", "定价", "用户体验", "技术架构", "市场定位"]
-        logger.info(f"[Orchestrator] 启动流水线: {products} (共 {len(products)} 个), trace={self.trace_id}")
+        logger.info(f"[Orchestrator] 启动流水线: {products} (共 {len(products)} 个), type={analysis_type}, trace={self.trace_id}")
 
         if use_langgraph:
             try:
-                return self._run_with_langgraph(products, dimensions)
+                return self._run_with_langgraph(products, dimensions, analysis_type)
             except Exception as e:
                 logger.warning(f"LangGraph 执行失败: {e}，降级为顺序执行")
-                return self._run_sequential(products, dimensions)
+                return self._run_sequential(products, dimensions, analysis_type)
         else:
-            return self._run_sequential(products, dimensions)
+            return self._run_sequential(products, dimensions, analysis_type)
 
     # ============================================================
     # Product Line 2: 代码审查入口
@@ -299,7 +301,7 @@ class Orchestrator:
     # ============================================================
 
     def _run_with_langgraph(
-        self, products: list[str], dimensions: list[str]
+        self, products: list[str], dimensions: list[str], analysis_type: str = "competitor",
     ) -> dict:
         """使用 LangGraph StateGraph 执行 DAG 流水线"""
         from langgraph.graph import END, StateGraph
@@ -365,7 +367,7 @@ class Orchestrator:
     # ============================================================
 
     def _run_sequential(
-        self, products: list[str], dimensions: list[str]
+        self, products: list[str], dimensions: list[str], analysis_type: str = "competitor",
     ) -> dict:
         """简单顺序执行 + 反馈闭环（无 LangGraph 依赖）"""
         max_rounds = self.config.get("agents", {}).get("reviewer", {}).get("max_review_rounds", 1)
@@ -374,6 +376,7 @@ class Orchestrator:
             "target_product": products[0],
             "target_products": products if isinstance(products, list) else [products],
             "analysis_dimensions": dimensions,
+            "analysis_type": analysis_type,
             "source_pool": [],
             "competitor_profiles": [],
             "feature_matrix": None,
@@ -388,7 +391,7 @@ class Orchestrator:
         # Step 1: Collect
         logger.info(f"[Orchestrator] → Collector | state.target_products={state.get('target_products')} | type={type(state.get('target_products')).__name__}")
         try:
-            result = self.collector.execute(state, target_products=products)
+            result = self.collector.execute(state, target_products=products, analysis_type=state.get("analysis_type", "competitor"))
             state.update(result)
             self.artifact_store.save_artifact(
                 self.trace_id, "01_collector",
@@ -453,7 +456,7 @@ class Orchestrator:
             # 如果是 insufficient_source，重新跑 Collector
             if reason == "insufficient_source":
                 logger.info("[Orchestrator] → Collector (补采信源)")
-                result = self.collector.execute(state, target_products=products)
+                result = self.collector.execute(state, target_products=products, analysis_type=state.get("analysis_type", "competitor"))
                 # 追加新信源，去重
                 existing_urls = {s.get("source_url", "") for s in state.get("source_pool", []) if isinstance(s, dict)}
                 new_sources = [s for s in result.get("source_pool", []) if isinstance(s, dict) and s.get("source_url", "") not in existing_urls]
@@ -475,7 +478,7 @@ class Orchestrator:
 
     def _collector_node(self, state: AgentState) -> dict:
         logger.info("[Node] Collector")
-        result = self.collector.execute(state)
+        result = self.collector.execute(state, analysis_type=state.get("analysis_type", "competitor"))
         self.artifact_store.save_artifact(
             self.trace_id, "01_collector",
             {"source_pool": result.get("source_pool", []),

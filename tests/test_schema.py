@@ -10,7 +10,6 @@
 """
 
 import json
-from datetime import datetime
 from uuid import UUID
 
 import pytest
@@ -30,7 +29,6 @@ from core.schema import (
     StructuredReport,
     SWOTItem,
 )
-
 
 # ============================================================
 # Fixtures

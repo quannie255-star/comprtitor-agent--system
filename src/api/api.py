@@ -8,16 +8,13 @@ FastAPI REST API
 
 import os
 import sys
-from typing import Optional
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import HTMLResponse, PlainTextResponse
 from pydantic import BaseModel, Field
 
 from core.orchestrator import Orchestrator
-from models.export import ReportExporter
 
 app = FastAPI(
     title="竞品分析 Agent 协作系统 API",

@@ -18,11 +18,9 @@ from unittest.mock import MagicMock
 import pytest
 
 from agents.writer import WriterAgent
-from core.message_bus import MessageBus
 from core.schema import (
     AnnotatedFinding,
     CompetitorProfile,
-    Evidence,
     Feature,
     FeatureMatrix,
     MarketInsight,
@@ -32,7 +30,6 @@ from core.schema import (
     SWOTItem,
 )
 from models.report import ReportRenderer
-
 
 # ============================================================
 # Fixtures
@@ -215,7 +212,7 @@ class TestReportRenderer:
         with tempfile.TemporaryDirectory() as tmpdir:
             filepath = renderer.save_report(report, output_dir=tmpdir)
             assert os.path.exists(filepath)
-            with open(filepath, "r", encoding="utf-8") as f:
+            with open(filepath, encoding="utf-8") as f:
                 content = f.read()
             assert "保存测试" in content
 

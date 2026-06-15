@@ -64,6 +64,7 @@ class CollectorAgent(BaseAgent):
             更新后的 state 片段
         """
         # 优先用显式传入，其次读 state
+        analysis_type = kwargs.get("analysis_type") or state.get("analysis_type", "competitor")
         raw_targets = kwargs.get("target_products") or state.get("target_products") or [state.get("target_product", "")]
         if isinstance(raw_targets, str):
             raw_targets = [raw_targets]  # 单字符串 → 单元素列表
@@ -93,7 +94,7 @@ class CollectorAgent(BaseAgent):
             search_start = datetime.now()
             self._log_step(action="search_start", input_summary=f"搜索: {target}")
 
-            search_results = self._search(target, seen_urls)
+            search_results = self._search(target, seen_urls, analysis_type)
 
             self._log_step(
                 action="search_complete",
@@ -209,14 +210,36 @@ class CollectorAgent(BaseAgent):
 
     # --- 内部方法 ---
 
-    def _search(self, target: str, seen_urls: set | None = None) -> list[dict]:
-        """搜索目标产品"""
+    def _search(self, target: str, seen_urls: set | None = None, analysis_type: str = "competitor") -> list[dict]:
+        """搜索目标产品——根据分析类型使用不同搜索策略"""
         seen = seen_urls or set()
-        queries = [
-            f"{target} 产品功能介绍",
-            f"{target} 定价方案",
-            f"{target} 优缺点评测",
-        ]
+
+        # 根据分析类型选择搜索 query 模板
+        query_templates = {
+            "competitor": [
+                f"{target} 产品功能介绍",
+                f"{target} 定价方案",
+                f"{target} 优缺点评测",
+            ],
+            "market_research": [
+                f"{target} 市场规模 2025 2026",
+                f"{target} 行业报告 趋势",
+                f"{target} 竞争格局 头部玩家",
+                f"{target} 用户需求 痛点",
+            ],
+            "tech_evaluation": [
+                f"{target} GitHub stars 活跃度",
+                f"{target} 性能 benchmark",
+                f"{target} vs 对比评测",
+                f"{target} 最佳实践 踩坑",
+            ],
+            "doc_audit": [
+                f"{target} 文档",
+                f"{target} API 参考",
+                f"{target} 入门教程",
+            ],
+        }
+        queries = query_templates.get(analysis_type, query_templates["competitor"])
         all_results = []
 
         for query in queries:

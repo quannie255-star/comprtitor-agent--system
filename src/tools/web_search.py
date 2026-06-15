@@ -5,7 +5,6 @@
 后续可扩展 DuckDuckGo 作为免费 fallback。
 """
 
-from typing import Optional
 
 from loguru import logger
 
@@ -43,7 +42,7 @@ class WebSearchTool:
         self,
         query: str,
         max_results: int = 5,
-        include_domains: Optional[list[str]] = None,
+        include_domains: list[str] | None = None,
         search_depth: str = "advanced",
     ) -> list[dict]:
         """执行搜索

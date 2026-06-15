@@ -1,0 +1,23 @@
+{
+  "trace_id": "ce808c33-a69d-48a1-b82f-cd154a64ce0e",
+  "total_events": 18,
+  "total_llm_calls": 18,
+  "agents": {
+    "analyst": {
+      "execute_count": 0,
+      "llm_calls": 9,
+      "warnings": 0
+    },
+    "writer": {
+      "execute_count": 0,
+      "llm_calls": 6,
+      "warnings": 0
+    },
+    "reviewer": {
+      "execute_count": 0,
+      "llm_calls": 3,
+      "warnings": 0
+    }
+  },
+  "generated_at": "2026-06-09T16:30:24.551915"
+}

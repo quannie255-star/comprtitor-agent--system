@@ -9,7 +9,6 @@ import json
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional
 
 from loguru import logger
 
@@ -41,7 +40,7 @@ class TraceStore:
         trace_id: str,
         agent_logs: dict[str, list[dict]],  # {agent_name: [execution_steps]}
         message_log: list[dict],
-        state_summary: Optional[dict] = None,
+        state_summary: dict | None = None,
     ) -> str:
         """保存完整执行轨迹
 
@@ -80,7 +79,7 @@ class TraceStore:
     def _build_timeline(
         agent_logs: dict[str, list[dict]],
         message_log: list[dict],
-        state_summary: Optional[dict],
+        state_summary: dict | None,
     ) -> dict:
         """构建时间线摘要"""
         events = []
@@ -106,7 +105,7 @@ class TraceStore:
             "state_summary": state_summary or {},
         }
 
-    def load_trace(self, trace_id: str) -> Optional[dict]:
+    def load_trace(self, trace_id: str) -> dict | None:
         """加载指定 trace 的完整轨迹"""
         trace_dir = self.base_dir / trace_id
         if not trace_dir.exists():
@@ -119,19 +118,19 @@ class TraceStore:
         if agents_dir.exists():
             for f in agents_dir.glob("*.json"):
                 agent_name = f.stem
-                with open(f, "r", encoding="utf-8") as fh:
+                with open(f, encoding="utf-8") as fh:
                     result["agents"][agent_name] = json.load(fh)
 
         # 加载消息日志
         msg_file = trace_dir / "messages.json"
         if msg_file.exists():
-            with open(msg_file, "r", encoding="utf-8") as f:
+            with open(msg_file, encoding="utf-8") as f:
                 result["messages"] = json.load(f)
 
         # 加载时间线
         tl_file = trace_dir / "timeline.json"
         if tl_file.exists():
-            with open(tl_file, "r", encoding="utf-8") as f:
+            with open(tl_file, encoding="utf-8") as f:
                 result["timeline"] = json.load(f)
 
         return result

@@ -5,13 +5,13 @@ Agent 间消息总线
 所有消息携带 trace_id，确保全链路可观测。
 """
 
+from collections.abc import Callable
 from datetime import datetime
 from enum import Enum
-from typing import Any, Callable, Optional
-from uuid import UUID, uuid4
+from typing import Any
+from uuid import uuid4
 
 from pydantic import BaseModel, Field
-
 
 # ============================================================
 # 消息模型
@@ -39,7 +39,7 @@ class Message(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid4()), description="消息唯一 ID")
     trace_id: str = Field(default="", description="全链路追踪 ID（可由 MessageBus 自动注入）")
     sender: str = Field(description="发送方 Agent 名称")
-    receiver: Optional[str] = Field(default=None, description="接收方 Agent 名称（None 表示广播）")
+    receiver: str | None = Field(default=None, description="接收方 Agent 名称（None 表示广播）")
     msg_type: MessageType = Field(description="消息类型")
     payload: dict[str, Any] = Field(default_factory=dict, description="消息体")
     timestamp: datetime = Field(default_factory=datetime.now, description="发送时间")

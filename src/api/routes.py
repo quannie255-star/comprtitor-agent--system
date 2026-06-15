@@ -194,7 +194,7 @@ with st.sidebar:
 # ============================================================
 # 主区域 — Tabs
 # ============================================================
-tab1, tab2 = st.tabs(["🔍 竞品分析", "🔎 Code Review"])
+tab1 = st.tabs(["🔍 竞品分析"])[0]
 
 # ========================
 # TAB 1: 竞品分析 (保留全部原有功能)
@@ -214,9 +214,23 @@ with tab1:
 # ============================================================
 in_l, in_r = st.columns([3, 1])
 with in_l:
+    analysis_type = st.selectbox(
+        "分析类型",
+        ["competitor", "market_research", "tech_evaluation", "doc_audit"],
+        format_func=lambda x: {
+            "competitor": "🔍 竞品分析", "market_research": "📊 市场调研",
+            "tech_evaluation": "⚙️ 技术选型", "doc_audit": "📋 文档审计",
+        }[x],
+        label_visibility="collapsed",
+    )
     target = st.text_input(
-        "竞品名称",
-        placeholder="多竞品用逗号分隔，如 Notion, 飞书, Figma",
+        "分析目标",
+        placeholder={
+            "competitor": "竞品名如 Notion, 飞书",
+            "market_research": "市场/行业，如 AI代码审查工具市场",
+            "tech_evaluation": "技术/框架，如 React vs Vue 2026",
+            "doc_audit": "文档站点 URL",
+        }[analysis_type],
         label_visibility="collapsed",
         key="target_input",
     )
@@ -243,13 +257,15 @@ if run_btn and targets_parsed:
         "agents": {"analyst": {"comparison_dimensions": selected_dims}, "reviewer": {"max_review_rounds": 3}},
         "orchestrator": {"recursion_limit": 25},
         "storage": {"traces_dir": "./traces", "outputs_dir": "./outputs", "artifacts_dir": "./artifacts"},
+        "analysis_type": analysis_type,
     }
 
     orchestrator = Orchestrator(config)
 
+    type_labels = {"competitor": "竞品分析", "market_research": "市场调研", "tech_evaluation": "技术选型", "doc_audit": "文档审计"}
     with st.status("流水线执行中...", expanded=True) as pipeline_status:
-        st.write("🔍 Collector — 搜索并采集竞品数据")
-        st.write("📊 Analyst — 功能对比与 SWOT 分析")
+        st.write(f"🔍 Collector — 执行{type_labels.get(analysis_type, '')}数据采集")
+        st.write("📊 Analyst — 多维度分析中")
         st.write("📝 Writer — 生成报告")
         st.write("✅ Reviewer — 质检审查")
 
@@ -259,6 +275,7 @@ if run_btn and targets_parsed:
             target_products=targets_parsed,
             analysis_dimensions=selected_dims,
             use_langgraph=False,
+            analysis_type=analysis_type,
         )
         pipeline_status.update(label="流水线执行完成", state="complete", expanded=False)
         st.session_state.last_result = result
@@ -401,148 +418,3 @@ if "last_result" in st.session_state and "last_orchestrator" in st.session_state
         f"轨迹 `traces/{orchestrator.trace_id}/` · "
         f"审计 `audits/{orchestrator.trace_id}/`"
     )
-
-# ========================
-# TAB 2: Code Review (Product Line 2)
-# ========================
-with tab2:
-    st.markdown("## Code Review · Multi-Agent 审查")
-    st.caption("Claude Code 架构审查 + Codex CLI 实现审查 · 质量门禁 · DORA 指标")
-    st.divider()
-
-    cr_left, cr_right = st.columns([2, 1])
-    with cr_left:
-        pr_title = st.text_input("PR 标题", placeholder="如: Fix JWT token refresh bug", key="pr_title")
-        pr_desc = st.text_area("PR 描述", placeholder="简要描述变更内容...", height=80, key="pr_desc")
-        pr_author = st.text_input("Author", value="dev", key="pr_author")
-
-    with cr_right:
-        agent_choice = st.selectbox("审查 Agent", ["auto (智能路由)", "claude", "codex", "all"], index=0)
-        changed_files_text = st.text_area(
-            "变更文件 (每行一个)", placeholder="src/auth.py\nsrc/middleware.py\ntests/test_auth.py",
-            height=100, key="changed_files",
-        )
-        additions = st.number_input("总新增行数", min_value=0, value=50, key="additions")
-        deletions = st.number_input("总删除行数", min_value=0, value=10, key="deletions")
-
-    review_btn = st.button("开始审查", type="primary", use_container_width=True,
-                           disabled=not bool(pr_title.strip()))
-
-    if review_btn:
-        # 构建 PR data
-        files_raw = [f.strip() for f in changed_files_text.split("\n") if f.strip()]
-        changed_files = [
-            {"path": f, "additions": max(1, additions // max(len(files_raw), 1)),
-             "deletions": max(0, deletions // max(len(files_raw), 1)),
-             "diff": f"(mock diff for {f})"}
-            for f in (files_raw or ["src/main.py"])
-        ]
-
-        pr_data = {
-            "title": pr_title.strip(),
-            "description": pr_desc.strip(),
-            "author": pr_author.strip(),
-            "changed_files": changed_files,
-            "total_additions": additions,
-            "total_deletions": deletions,
-        }
-
-        # Agent 选择
-        selected = None
-        if agent_choice != "auto (智能路由)":
-            selected = [agent_choice] if agent_choice != "all" else ["claude", "codex"]
-
-        config = {
-            "llm": {"provider": "openai", "model": model, "api_key": api_key, "api_base": api_base},
-            "storage": {"traces_dir": "./traces", "outputs_dir": "./outputs", "artifacts_dir": "./artifacts"},
-        }
-        orchestrator = Orchestrator(config)
-
-        with st.status("审查流水线执行中...", expanded=True) as cr_status:
-            st.write("📥 Collector — 采集 PR 变更数据")
-            st.write("🔍 Analyst — 双轨并行审查 (Claude + Codex)")
-            st.write("📝 Writer — 生成审查报告")
-            st.write("🚦 Reviewer — 质量门禁判定")
-
-        try:
-            cr_result = orchestrator.review_pr(pr_data, selected_agents=selected)
-            cr_status.update(label="审查完成", state="complete", expanded=False)
-            st.session_state.cr_result = cr_result
-        except Exception as e:
-            import traceback
-            cr_status.update(label="审查失败", state="error")
-            st.error(str(e))
-            st.code(traceback.format_exc())
-            st.stop()
-
-    # --- 审查结果展示 ---
-    if "cr_result" in st.session_state:
-        cr = st.session_state.cr_result
-        report = cr.get("report", "")
-        review_result = cr.get("review_result", {})
-        dora = cr.get("dora_metrics", {})
-        agenthub = cr.get("agenthub_metrics", {})
-        score_data = cr.get("review_score", {})
-
-        if report:
-            st.divider()
-
-            # 分数仪表盘
-            st.markdown("### Review Score")
-            if score_data:
-                cols = st.columns(6)
-                metrics_list = [
-                    ("Overall", score_data.get("overall", 0)),
-                    ("Architecture", score_data.get("architecture", 0)),
-                    ("Security", score_data.get("security", 0)),
-                    ("Performance", score_data.get("performance", 0)),
-                    ("Test Cov.", score_data.get("test_coverage", 0)),
-                    ("Maint.", score_data.get("maintainability", 0)),
-                ]
-                for i, (label, val) in enumerate(metrics_list):
-                    color = "#10B981" if val >= 8 else "#F59E0B" if val >= 6 else "#EF4444"
-                    cols[i].metric(label, f"{val:.1f}/10")
-
-            # 质量门禁
-            passed = review_result.get("passed", False) if isinstance(review_result, dict) else False
-            badge = "✅ PASSED" if passed else "❌ FAILED"
-            badge_c = "#10B981" if passed else "#EF4444"
-            st.markdown(
-                f'<span style="background:{badge_c}15;color:{badge_c};padding:4px 12px;'
-                f'border-radius:20px;font-size:0.9em;font-weight:600">Quality Gate: {badge}</span>',
-                unsafe_allow_html=True,
-            )
-            st.markdown("<br>", unsafe_allow_html=True)
-
-            # DORA 指标
-            if dora:
-                st.markdown("#### DORA Metrics")
-                dc = st.columns(4)
-                dc[0].metric("Deploy Freq", f"{dora.get('deployment_frequency', 0):.1f}/wk")
-                dc[1].metric("Lead Time", f"{dora.get('lead_time_hours', 0):.1f}h")
-                dc[2].metric("Failure Rate", f"{dora.get('change_failure_rate', 0):.1f}%")
-                dc[3].metric("MTTR", f"{dora.get('mttr_hours', 0):.1f}h")
-                level = dora.get("performance_level", "N/A") if isinstance(dora, dict) else "N/A"
-                st.caption(f"Performance Level: **{level.upper() if isinstance(level, str) else level}**")
-
-            # AgentHub 指标
-            if agenthub:
-                with st.expander("AgentHub Metrics", expanded=False):
-                    ac = st.columns(4)
-                    ac[0].metric("AI Coverage", f"{agenthub.get('ai_review_coverage', 0):.1%}")
-                    ac[1].metric("Detection Rate", f"{agenthub.get('ai_issue_detection_rate', 0):.1%}")
-                    ac[2].metric("Fix Adoption", f"{agenthub.get('ai_fix_adoption_rate', 0):.1%}")
-                    ac[3].metric("Time Saved", f"{agenthub.get('human_review_time_saved_pct', 0):.1%}")
-                    bc = st.columns(3)
-                    bc[0].metric("Multi-Agent Gain", f"{agenthub.get('multi_agent_efficiency_gain', 0):.1%}")
-                    bc[1].metric("Util. Balance", f"{agenthub.get('agent_utilization_balance', 0):.1%}")
-                    bc[2].metric("Cost/Review", f"${agenthub.get('cost_per_review_usd', 0):.2f}")
-
-            # 报告正文
-            st.markdown("---")
-            st.markdown(report, unsafe_allow_html=True)
-
-            # 下载
-            dl1, dl2 = st.columns(2)
-            dl1.download_button("Download MD", data=report, file_name=f"review_{pr_title.strip()[:30]}.md", mime="text/markdown")
-            dl2.download_button("Download JSON", data=str(cr), file_name=f"review_{pr_title.strip()[:30]}.json", mime="application/json")
