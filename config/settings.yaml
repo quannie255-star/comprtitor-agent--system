@@ -65,3 +65,37 @@ storage:
   outputs_dir: "./outputs"        # 报告输出目录
   artifacts_dir: "./artifacts"    # 中间产物存储目录
   retention_days: 30              # 保留天数
+
+# --- 代码审查配置 (Product Line 2) ---
+code_review:
+  size_thresholds:
+    small: 50                     # < 50 行：轻量审查
+    medium: 200                   # 50-200 行：标准审查
+  quality_gates:
+    min_overall_score: 6.0
+    min_security_score: 7.0
+    min_performance_score: 6.0
+    min_test_coverage: 5.0
+    auto_approve_threshold: 8.5
+  agents:
+    claude:
+      command: "claude"
+      specialties: ["architecture", "security", "performance", "maintainability", "best_practice"]
+      timeout_seconds: 300
+    codex:
+      command: "codex"
+      specialties: ["boundary_conditions", "error_handling", "test_coverage", "code_style"]
+      timeout_seconds: 300
+  dora_targets:
+    deployment_frequency: 5.0     # 次/周
+    lead_time_hours: 12           # 小时
+    change_failure_rate: 5.0      # %
+    mttr_hours: 3.6               # 小时
+  agenthub_targets:
+    ai_review_coverage: 0.90
+    ai_issue_detection_rate: 0.85
+    ai_fix_adoption_rate: 0.60
+    human_review_time_saved: 0.75
+    multi_agent_efficiency: 0.40
+    agent_utilization_balance: 0.20
+    cost_per_review_usd: 2.00
